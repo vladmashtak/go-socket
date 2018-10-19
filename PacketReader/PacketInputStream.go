@@ -22,12 +22,18 @@ func ReadInput(in []byte) {
 	size := packet.ReadInt()
 	// log.Printf("SZ: %v", size)
 
+	list := make([]map[string]interface{}, size)
+
 	var i uint32 = 0
 
 	for i < size {
 		mapValue := make(map[string]interface{})
 
 		message.ReadObject(packet, mapValue)
+		if len(mapValue) != 0 {
+			list = append(list, mapValue)
+		}
+
 		i++
 	}
 
