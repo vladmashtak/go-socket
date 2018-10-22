@@ -101,6 +101,20 @@ func (a *Aggregator) begin() error {
 	return err
 }
 
+func (a *Aggregator) commit() {
+	if a.tx != nil {
+		if err := a.tx.Commit(); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func (a *Aggregator) close() {
+	if a.connect != nil {
+		a.connect.Close()
+	}
+}
+
 func parseValueToLong(value interface{}) int64 {
 	if result, ok := value.(uint64); !ok {
 		return 0
@@ -120,6 +134,14 @@ func parseValueToInt(value interface{}) int32 {
 func parseValueToShort(value interface{}) uint16 {
 	if result, ok := value.(uint16); !ok {
 		return 0
+	} else {
+		return result
+	}
+}
+
+func parseValueToVlan(value interface{}) uint16 {
+	if result, ok := value.(uint16); !ok {
+		return 32767
 	} else {
 		return result
 	}
@@ -155,7 +177,7 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 	}
 
 	if a.netIfaceStmt == nil {
-		a.netIfaceStmt, _ = a.tx.Prepare(networkInterfaceStatisticStatement)
+		a.netIfaceStmt, _ = Clickhouse.PrepareStatement(a.tx, networkInterfaceStatisticStatement)
 	}
 
 	timestamp := parseValueToLong(mapValue["timestamp"]) / 1000
@@ -166,7 +188,8 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 	outBytes := parseValueToLong(mapValue["out_bytes"])
 
 	protocol := mapValue["proto"].(string)
-	vlan := mapValue["vlan"].(uint16)
+
+	vlan := parseValueToVlan(mapValue["vlan"])
 
 	if _, err := a.netIfaceStmt.Exec(
 		interfaceIndex,
@@ -183,7 +206,7 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 		log.Fatal(err)
 	}
 
-	a.AddVlanBatch(interfaceIndex, dpiInstance, vlan)
+	// a.AddVlanBatch(interfaceIndex, dpiInstance, vlan)
 }
 
 func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vlan uint16) {
@@ -192,7 +215,7 @@ func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vla
 	}
 
 	if a.vlanStmt == nil {
-		a.vlanStmt, _ = a.tx.Prepare(vlanStatement)
+		a.vlanStmt, _ = Clickhouse.PrepareStatement(a.tx, vlanStatement)
 	}
 
 	if _, err := a.vlanStmt.Exec(interfaceIndex, dpiInstance, vlan); err != nil {
@@ -206,7 +229,7 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 	}
 
 	if a.dnsStmt == nil {
-		a.dnsStmt, _ = a.tx.Prepare(dnsStatement)
+		a.dnsStmt, _ = Clickhouse.PrepareStatement(a.tx, dnsStatement)
 	}
 
 	domain, ok := mapValue["c_name"].(string)
@@ -225,8 +248,8 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 
 	ip := ""
 
-	if mapValue["addr"] != nil {
-		var netIp net.IP = mapValue["addr"].([]byte)
+	if mapValue["addrv6"] != nil {
+		var netIp net.IP = mapValue["addrv6"].([]byte)
 
 		ip = netIp.To16().String()
 
@@ -256,7 +279,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 	}
 
 	if a.netSessionStmt == nil {
-		a.netSessionStmt, _ = a.tx.Prepare(netSessionStatement)
+		a.netSessionStmt, _ = Clickhouse.PrepareStatement(a.tx, netSessionStatement)
 	}
 
 	protocol := parseValueToString(mapValue["srv_protocol"])
@@ -373,15 +396,9 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 	clientCertificate := ""
 
 	if strings.ToUpper(caption) == "SSL" {
-		ok := true
+		serverCertificate = parseValueToString(mapValue["server_certificate"])
 
-		if serverCertificate, ok = mapValue["server_certificate"].(string); !ok {
-			serverCertificate = ""
-		}
-
-		if clientCertificate, ok = mapValue["client_certificate"].(string); !ok {
-			clientCertificate = ""
-		}
+		clientCertificate = parseValueToString(mapValue["client_certificate"])
 
 		if len(serverCertificate) != 0 {
 			if strings.HasSuffix(serverCertificate, "*.") {
@@ -394,11 +411,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		}
 	}
 
-	var vlan uint16 = 32767
-
-	if v, ok := mapValue["vlan"].(uint16); ok {
-		vlan = v
-	}
+	vlan := parseValueToVlan(mapValue["vlan"])
 
 	if _, err := a.netSessionStmt.Exec(
 		interfaceIndex,
@@ -466,11 +479,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 }
 
 func (a *Aggregator) Execute() {
-	if a.tx != nil {
-		if err := a.tx.Commit(); err != nil {
-			log.Fatal(err)
-		}
-	}
+	a.commit()
 
 	defer func(a *Aggregator) {
 		if a.netIfaceStmt != nil {
@@ -491,4 +500,6 @@ func (a *Aggregator) Execute() {
 
 		a.connect.Close()
 	}(a)
+
+	a.close()
 }

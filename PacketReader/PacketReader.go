@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"io"
 	"io/ioutil"
 	"log"
 )
@@ -25,17 +26,22 @@ func (p *PacketReader) decompress() {
 	p.ReadInt()
 	p.ReadInt()
 
-	reader, err := zlib.NewReader(bytes.NewReader(p.buffer[p.index:]))
-	defer reader.Close()
+	var (
+		reader  io.ReadCloser
+		message []byte
+		err     error
+	)
 
-	if err != nil {
-		log.Fatal(err)
+	zlib.NewReaderDict
+
+	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
+		log.Printf("Create archive reader error: %v", err)
 	}
 
-	message, err := ioutil.ReadAll(reader)
+	defer reader.Close()
 
-	if err != nil {
-		log.Fatal(err)
+	if message, err = ioutil.ReadAll(reader); err != nil {
+		log.Printf("Decompress error: %v", err)
 	}
 
 	p.index = 0

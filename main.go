@@ -6,23 +6,34 @@ import (
 	"engine-socket/PacketReader"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/tidwall/evio"
 )
 
+func runningtime(s string) (string, time.Time) {
+	log.Println("Start:	", s)
+	return s, time.Now()
+}
+
+func track(s string, startTime time.Time) {
+	endTime := time.Now()
+	log.Println("End:	", s, "took", endTime.Sub(startTime))
+}
+
 func main() {
 	var events evio.Events
 
-	events.NumLoops = 1
+	events.NumLoops = 10
 
 	events.Opened = func(c evio.Conn) (out []byte, opts evio.Options, action evio.Action) {
 		c.SetContext(&evio.InputStream{})
-		log.Printf("opened: laddr: %v: raddr: %v", c.LocalAddr(), c.RemoteAddr())
+		log.Printf("Opened: laddr: %v: raddr: %v", c.LocalAddr(), c.RemoteAddr())
 		return
 	}
 
 	events.Closed = func(c evio.Conn, err error) (action evio.Action) {
-		log.Printf("closed: %s: %s", c.LocalAddr().String(), c.RemoteAddr().String())
+		log.Printf("Closed: %s: %s", c.LocalAddr().String(), c.RemoteAddr().String())
 		return
 	}
 
@@ -31,6 +42,8 @@ func main() {
 			return
 		}
 
+		defer track(runningtime("Execute"))
+
 		packet := PacketReader.NewPacketReader(in)
 
 		message := Deserializer.NewMessage()
@@ -38,10 +51,10 @@ func main() {
 		message.Read(packet)
 
 		instance := packet.ReadString()
-		log.Printf("Read instance: %s", instance)
+		// log.Printf("Read instance: %s", instance)
 
 		portId := packet.ReadString()
-		log.Printf("Read portId: %s", portId)
+		// log.Printf("Read portId: %s", portId)
 
 		size := packet.ReadInt()
 		// log.Printf("SZ: %v", size)
@@ -55,7 +68,6 @@ func main() {
 
 			message.ReadObject(packet, mapValue)
 			if len(mapValue) != 0 {
-				// list = append(list, mapValue)
 
 				caption := strings.ToLower(message.GetCaption())
 
