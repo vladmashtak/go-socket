@@ -3,16 +3,14 @@ package Clickhouse
 import (
 	"database/sql"
 	"fmt"
-	"log"
-
 	"github.com/kshvakov/clickhouse"
 )
 
 func Connect() (*sql.DB, error)  {
-	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000")
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9001?database=aqosta")
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	if err := connect.Ping(); err != nil {

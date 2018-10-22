@@ -3,9 +3,10 @@ package main
 import (
 	"github.com/tidwall/evio"
 	"log"
-	"engine-socket/PacketReader"
 	"engine-socket/Deserializer"
 	"strings"
+	"engine-socket/Aggregator"
+	"engine-socket/PacketReader"
 )
 
 func main() {
@@ -29,7 +30,50 @@ func main() {
 			return
 		}
 
-		PacketReader.ReadInput(in)
+		packet := PacketReader.NewPacketReader(in)
+
+		message := Deserializer.NewMessage()
+
+		message.Read(packet)
+
+		instance := packet.ReadString()
+		log.Printf("Read instance: %s", instance)
+
+		portId := packet.ReadString()
+		log.Printf("Read port: %s", portId)
+
+		size := packet.ReadInt()
+		// log.Printf("SZ: %v", size)
+
+		// list := make([]map[string]interface{}, size)
+
+		var i uint32 = 0
+
+		aggregator := Aggregator.NewAggregator()
+
+		for i < size {
+			mapValue := make(map[string]interface{})
+
+			message.ReadObject(packet, mapValue)
+			if len(mapValue) != 0 {
+				// list = append(list, mapValue)
+
+				caption := strings.ToLower(message.GetCaption())
+
+				switch caption {
+				case "protos":
+					aggregator.AddNetIfaceBatch(portId, instance, mapValue)
+				case "dns":
+					aggregator.AddDnsBatch(portId, instance, mapValue)
+				default:
+					aggregator.AddNetSessionBatch(portId, instance, mapValue, caption)
+				}
+			}
+
+			i++
+		}
+
+		aggregator.Execute()
 
 		return
 	}
