@@ -1,16 +1,16 @@
 package PacketReader
 
 import (
-	"encoding/binary"
-	"compress/zlib"
 	"bytes"
+	"compress/zlib"
+	"encoding/binary"
 	"io/ioutil"
 	"log"
 )
 
 type PacketReader struct {
 	buffer []byte
-	index uint32
+	index  uint32
 }
 
 func NewPacketReader(buffer []byte) *PacketReader {
@@ -45,7 +45,7 @@ func (p *PacketReader) decompress() {
 func (p *PacketReader) shiftCursor(offset uint32) []byte {
 	endIndex := p.index + offset
 
-	in := p.buffer[p.index : endIndex]
+	in := p.buffer[p.index:endIndex]
 	p.index = endIndex
 
 	return in
@@ -75,7 +75,6 @@ func (p *PacketReader) ReadString() string {
 	strLen := p.ReadInt()
 
 	in := p.shiftCursor(strLen)
-
 
 	return string(in)
 }

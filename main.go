@@ -1,18 +1,19 @@
 package main
 
 import (
-	"github.com/tidwall/evio"
-	"log"
-	"engine-socket/Deserializer"
-	"strings"
 	"engine-socket/Aggregator"
+	"engine-socket/Deserializer"
 	"engine-socket/PacketReader"
+	"log"
+	"strings"
+
+	"github.com/tidwall/evio"
 )
 
 func main() {
 	var events evio.Events
 
-	events.NumLoops = 2
+	events.NumLoops = 1
 
 	events.Opened = func(c evio.Conn) (out []byte, opts evio.Options, action evio.Action) {
 		c.SetContext(&evio.InputStream{})
@@ -40,12 +41,10 @@ func main() {
 		log.Printf("Read instance: %s", instance)
 
 		portId := packet.ReadString()
-		log.Printf("Read port: %s", portId)
+		log.Printf("Read portId: %s", portId)
 
 		size := packet.ReadInt()
 		// log.Printf("SZ: %v", size)
-
-		// list := make([]map[string]interface{}, size)
 
 		var i uint32 = 0
 

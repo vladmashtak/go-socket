@@ -5,9 +5,9 @@ import (
 )
 
 type Field struct {
-	id string
+	id        string
 	fieldType byte
-	must byte
+	must      byte
 }
 
 func NewField() *Field {
@@ -28,7 +28,7 @@ func (f *Field) SetMust(must byte) {
 
 func (f *Field) Read(packet *reader.PacketReader) {
 	f.fieldType = packet.ReadByte()
-	// log.Printf("tp: %v", f.fieldType)
+	// log.Printf("fieldType: %v", f.fieldType)
 
 	f.id = packet.ReadString()
 	// log.Printf("id: %s", f.id)

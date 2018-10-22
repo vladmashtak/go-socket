@@ -1,18 +1,18 @@
 package Aggregator
 
 import (
-	"database/sql"
-	"engine-socket/Clickhouse"
-	"log"
-	"strings"
-	"net"
-	"encoding/binary"
 	"bytes"
+	"database/sql"
+	"encoding/binary"
+	"engine-socket/Clickhouse"
 	"fmt"
+	"log"
+	"net"
+	"strings"
 )
+
 const (
-	networkInterfaceStatisticStatement =
-		`INSERT INTO networkInterfaceStatistic (
+	networkInterfaceStatisticStatement = `INSERT INTO networkInterfaceStatistic (
 			interfaceIndex,
 			dpiInstance,
 			timestamp,
@@ -24,8 +24,7 @@ const (
 			protocol,
 			vlan
 		) VALUES (?,?,?,?,?,?,?,?,?,?)`
-	netSessionStatement =
-		`INSERT INTO netSession (
+	netSessionStatement = `INSERT INTO netSession (
 			interfaceIndex,	dpiInstance,
 			protocol,
 			groupId,
@@ -59,8 +58,7 @@ const (
 			vlan1, vlan2,
 			source
 		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-	dnsStatement =
-		`INSERT INTO dns (
+	dnsStatement = `INSERT INTO dns (
 			interfaceIndex,
 			dpiInstance,
 			name,
@@ -69,8 +67,7 @@ const (
 			timestamp,
 			host
 		) VALUES (?,?,?,?,?,?,?)`
-	vlanStatement =
-		`INSERT INTO vlan (
+	vlanStatement = `INSERT INTO vlan (
 			interfaceIndex,
 			dpiInstance,
 			vlan
@@ -78,12 +75,12 @@ const (
 )
 
 type Aggregator struct {
-	tx *sql.Tx
-	connect *sql.DB
-	netIfaceStmt *sql.Stmt
-	vlanStmt *sql.Stmt
+	tx             *sql.Tx
+	connect        *sql.DB
+	netIfaceStmt   *sql.Stmt
+	vlanStmt       *sql.Stmt
 	netSessionStmt *sql.Stmt
-	dnsStmt *sql.Stmt
+	dnsStmt        *sql.Stmt
 }
 
 func NewAggregator() *Aggregator {
@@ -104,23 +101,23 @@ func (a *Aggregator) begin() error {
 	return err
 }
 
-func parseValueToLong(value interface{}) uint64  {
+func parseValueToLong(value interface{}) int64 {
 	if result, ok := value.(uint64); !ok {
 		return 0
 	} else {
-		return result
+		return int64(result)
 	}
 }
 
-func parseValueToInt(value interface{}) uint32  {
-	if result, ok := value.(uint32); !ok {
+func parseValueToInt(value interface{}) int32 {
+	if result, ok := value.(uint64); !ok {
 		return 0
 	} else {
-		return result
+		return int32(result)
 	}
 }
 
-func parseValueToShort(value interface{}) uint16  {
+func parseValueToShort(value interface{}) uint16 {
 	if result, ok := value.(uint16); !ok {
 		return 0
 	} else {
@@ -128,9 +125,17 @@ func parseValueToShort(value interface{}) uint16  {
 	}
 }
 
-func parseValueToString(value interface{}) string  {
+func parseValueToString(value interface{}) string {
 	if result, ok := value.(string); !ok {
 		return ""
+	} else {
+		return result
+	}
+}
+
+func parseValueToArrayByte(value interface{}) []byte {
+	if result, ok := value.([]byte); !ok {
+		return make([]byte, 0)
 	} else {
 		return result
 	}
@@ -144,15 +149,7 @@ func createKeyValuePairs(m map[string]interface{}) string {
 	return b.String()
 }
 
-func parseValueToArrayByte(value interface{}) []byte  {
-	if result, ok := value.([]byte); !ok {
-		return make([]byte, 0)
-	} else {
-		return result
-	}
-}
-
-func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{})  {
+func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) {
 	if err := a.begin(); err != nil {
 		return
 	}
@@ -161,7 +158,7 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 		a.netIfaceStmt, _ = a.tx.Prepare(networkInterfaceStatisticStatement)
 	}
 
-	timestamp := mapValue["timestamp"].(uint64) / 1000
+	timestamp := parseValueToLong(mapValue["timestamp"]) / 1000
 	bytes := parseValueToLong(mapValue["bytes"])
 	pkts := parseValueToLong(mapValue["pkts"])
 	session := parseValueToLong(mapValue["session"])
@@ -218,13 +215,13 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 		domain = ""
 	} else {
 		if strings.HasPrefix(domain, "www") {
-			domain = domain[len("www") : ]
+			domain = domain[len("www"):]
 		}
 	}
 
 	ttl := parseValueToLong(mapValue["ttl"])
 	count := parseValueToInt(mapValue["count"])
-	timestamp := mapValue["timestamp"].(uint64)
+	timestamp := parseValueToLong(mapValue["timestamp"])
 
 	ip := ""
 
@@ -235,7 +232,7 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 
 	} else {
 		netIp := make(net.IP, 4)
-		binary.BigEndian.PutUint32(netIp, mapValue["addr"].(uint32))
+		binary.BigEndian.PutUint32(netIp, uint32(mapValue["addr"].(uint64)))
 
 		ip = netIp.String()
 	}
@@ -262,15 +259,13 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		a.netSessionStmt, _ = a.tx.Prepare(netSessionStatement)
 	}
 
-	log.Println(createKeyValuePairs(mapValue))
+	protocol := parseValueToString(mapValue["srv_protocol"])
+	groupId := parseValueToString(mapValue["group_id"])
+	serverPort := int32(mapValue["service_port"].(uint64))
+	clientPort := int32(mapValue["clnt_port"].(uint64))
 
-	protocol := mapValue["srv_protocol"].(string)
-	groupId := mapValue["group_id"].(string)
-	serverPort := mapValue["service_port"].(uint64)
-	clientPort := mapValue["clnt_port"].(uint64)
-
-	startTime := mapValue["start"].(uint64) / 1000
-	endTime := mapValue["end"].(uint64) / 1000
+	startTime := parseValueToLong(mapValue["start"]) / 1000
+	endTime := parseValueToLong(mapValue["end"]) / 1000
 
 	state := parseValueToLong(mapValue["state"])
 
@@ -346,7 +341,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		serverIP = netIp.To16().String()
 	} else {
 		netIp := make(net.IP, 4)
-		binary.BigEndian.PutUint32(netIp, mapValue["service_ip"].(uint32))
+		binary.BigEndian.PutUint32(netIp, uint32(mapValue["service_ip"].(uint64)))
 
 		serverIP = netIp.String()
 	}
@@ -357,7 +352,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		clientIP = netIp.To16().String()
 	} else {
 		netIp := make(net.IP, 4)
-		binary.BigEndian.PutUint32(netIp, mapValue["clnt_ip"].(uint32))
+		binary.BigEndian.PutUint32(netIp, uint32(mapValue["clnt_ip"].(uint64)))
 
 		clientIP = netIp.String()
 	}
@@ -447,6 +442,8 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		cos,
 		cif,
 		mpls,
+		clientCertificate,
+		serverCertificate,
 		version,
 		httpUrl,
 		httpMethod,
@@ -477,7 +474,7 @@ func (a *Aggregator) Execute() {
 
 	defer func(a *Aggregator) {
 		if a.netIfaceStmt != nil {
-			 a.netIfaceStmt.Close()
+			a.netIfaceStmt.Close()
 		}
 
 		if a.vlanStmt != nil {

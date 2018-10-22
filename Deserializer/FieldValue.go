@@ -5,41 +5,37 @@ import (
 )
 
 const (
-	unknownType byte = 0
-	longType byte = 1
-	stringType byte = 2
+	unknownType  byte = 0
+	longType     byte = 1
+	stringType   byte = 2
 	datetimeType byte = 3
-	byteType byte = 4
-	doubleType byte = 5
-	byteArray byte = 6
+	byteType     byte = 4
+	doubleType   byte = 5
+	byteArray    byte = 6
 )
 
-type FieldValue struct {
-	value interface{}
-	fieldValueType byte
-}
+func ReadValue(packet *reader.PacketReader) interface{} {
+	var fieldValue interface{}
+	fieldValueType := packet.ReadByte()
 
-func NewFieldValue() *FieldValue {
-	return &FieldValue{nil, unknownType}
-}
-
-func (f* FieldValue) Read(packet *reader.PacketReader) {
-	f.fieldValueType = packet.ReadByte()
-	
-	if f.fieldValueType == unknownType {
-		return
+	if fieldValueType == unknownType {
+		return fieldValue
 	}
 
-	switch f.fieldValueType {
+	switch fieldValueType {
 	case byteType:
-		f.value = packet.ReadByte()
+		fieldValue = packet.ReadByte()
 	case byteArray:
-		f.value = packet.ReadByteArray()
+		fieldValue = packet.ReadByteArray()
 	case datetimeType, longType:
-		f.value = packet.ReadLong()
+		fieldValue = packet.ReadLong()
 	case doubleType:
-		f.value = packet.ReadDouble()
+		fieldValue = packet.ReadDouble()
 	case stringType:
-		f.value = packet.ReadString()
+		fieldValue = packet.ReadString()
 	}
+
+	// log.Printf("fieldValue: %v", fieldValue)
+
+	return fieldValue
 }

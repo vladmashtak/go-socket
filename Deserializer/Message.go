@@ -5,14 +5,14 @@ import (
 )
 
 type Message struct {
-	caption string
-	serviceType string
+	caption        string
+	serviceType    string
 	technologyType string
-	fieldTable map[uint32]*Field
+	fieldArray     []*Field
 }
 
 func NewMessage() *Message {
-	return &Message{fieldTable: make(map[uint32]*Field)}
+	return &Message{}
 }
 
 func (m *Message) Read(packet *reader.PacketReader) {
@@ -28,26 +28,25 @@ func (m *Message) Read(packet *reader.PacketReader) {
 	m.caption = packet.ReadString()
 	// log.Printf("caption: %v", m.caption)
 
-	var i uint32 = 0
+	if m.fieldArray == nil {
+		m.fieldArray = make([]*Field, size)
+	}
 
-	for i < size {
+	for i, _ := range m.fieldArray {
 		fld := NewField()
 		fld.Read(packet)
 
-		m.fieldTable[i] = fld
-
-		i++
+		m.fieldArray[i] = fld
 	}
 }
 
-func (m* Message) ReadObject(packet *reader.PacketReader, mapValue map[string]interface{}) {
+func (m *Message) ReadObject(packet *reader.PacketReader, mapValue map[string]interface{}) {
 
-	for _, field := range m.fieldTable {
+	for _, field := range m.fieldArray {
+		// log.Printf("fieldType: %s", field.id)
 
-		fieldValue := NewFieldValue()
-		fieldValue.Read(packet)
-
-		mapValue[field.id] = fieldValue.value
+		fieldValue := ReadValue(packet)
+		mapValue[field.id] = fieldValue
 	}
 }
 
