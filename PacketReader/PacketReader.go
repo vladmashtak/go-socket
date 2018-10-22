@@ -5,7 +5,6 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"io"
-	"io/ioutil"
 	"log"
 )
 
@@ -24,15 +23,15 @@ func NewPacketReader(buffer []byte) *PacketReader {
 
 func (p *PacketReader) decompress() {
 	p.ReadInt()
-	p.ReadInt()
+	capacity := p.ReadInt()
+
+	log.Printf("Buffer capacity: %v", capacity)
 
 	var (
 		reader  io.ReadCloser
-		message []byte
+		message []byte = make([]byte, capacity)
 		err     error
 	)
-
-	zlib.NewReaderDict
 
 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
 		log.Printf("Create archive reader error: %v", err)
@@ -40,7 +39,7 @@ func (p *PacketReader) decompress() {
 
 	defer reader.Close()
 
-	if message, err = ioutil.ReadAll(reader); err != nil {
+	if _, err = reader.Read(message); err != nil {
 		log.Printf("Decompress error: %v", err)
 	}
 

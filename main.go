@@ -24,7 +24,7 @@ func track(s string, startTime time.Time) {
 func main() {
 	var events evio.Events
 
-	events.NumLoops = 10
+	events.NumLoops = -1
 
 	events.Opened = func(c evio.Conn) (out []byte, opts evio.Options, action evio.Action) {
 		c.SetContext(&evio.InputStream{})

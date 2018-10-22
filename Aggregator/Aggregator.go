@@ -284,8 +284,8 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 
 	protocol := parseValueToString(mapValue["srv_protocol"])
 	groupId := parseValueToString(mapValue["group_id"])
-	serverPort := int32(mapValue["service_port"].(uint64))
-	clientPort := int32(mapValue["clnt_port"].(uint64))
+	serverPort := parseValueToInt(mapValue["service_port"])
+	clientPort := parseValueToInt(mapValue["clnt_port"])
 
 	startTime := parseValueToLong(mapValue["start"]) / 1000
 	endTime := parseValueToLong(mapValue["end"]) / 1000
