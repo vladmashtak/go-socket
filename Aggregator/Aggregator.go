@@ -1,77 +1,10 @@
 package Aggregator
 
 import (
-	"bytes"
 	"database/sql"
-	"encoding/binary"
 	"engine-socket/Clickhouse"
-	"fmt"
 	"log"
-	"net"
 	"strings"
-)
-
-const (
-	networkInterfaceStatisticStatement = `INSERT INTO networkInterfaceStatistic (
-			interfaceIndex,
-			dpiInstance,
-			timestamp,
-			totalBytes, 
-			totalPackets,
-			totalSessions,
-			totalOutBytes,
-			totalOutPackets,
-			protocol,
-			vlan
-		) VALUES (?,?,?,?,?,?,?,?,?,?)`
-	netSessionStatement = `INSERT INTO netSession (
-			interfaceIndex,	dpiInstance,
-			protocol,
-			groupId,
-			serverPort,	clientPort,
-			startTime,endTime,
-			domain,
-			isBroadcastServer, isBroadcastClient,
-			state,
-			macServer, macClient,
-			simpleObjectId,
-			rtt, art,
-			from_srv_pkts, from_srv_bytes,
-			from_srv_payload, from_clnt_pkts,
-			from_clnt_bytes, from_clnt_payload,
-			fragments_from_srv, fragments_bytes_from_srv,
-			fragments_from_clnt, fragments_bytes_from_clnt,
-			reorder_from_srv, reorder_bytes_from_srv,
-			reorder_from_clnt, reorder_bytes_from_clnt,
-			retrans_pkts_from_srv, retrans_bytes_from_srv,
-			retrans_pkts_from_clnt, retrans_bytes_from_clnt,
-			lost_from_srv, lost_from_clnt,
-			tos, cos, cif, mpls,
-			client_certificate, server_certificate,
-			version,
-			http_url, http_method,
-			http_response, http_context,
-			http_forwarded, http_origin,
-			http_cookie, http_x_session_type,
-			http_user_agent, http_encoding,
-			serverIP, clientIP,
-			vlan1, vlan2,
-			source
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-	dnsStatement = `INSERT INTO dns (
-			interfaceIndex,
-			dpiInstance,
-			name,
-			ttl,
-			count,
-			timestamp,
-			host
-		) VALUES (?,?,?,?,?,?,?)`
-	vlanStatement = `INSERT INTO vlan (
-			interfaceIndex,
-			dpiInstance,
-			vlan
-		) VALUES (?,?,?)`
 )
 
 type Aggregator struct {
@@ -113,62 +46,6 @@ func (a *Aggregator) close() {
 	if a.connect != nil {
 		a.connect.Close()
 	}
-}
-
-func parseValueToLong(value interface{}) int64 {
-	if result, ok := value.(uint64); !ok {
-		return 0
-	} else {
-		return int64(result)
-	}
-}
-
-func parseValueToInt(value interface{}) int32 {
-	if result, ok := value.(uint64); !ok {
-		return 0
-	} else {
-		return int32(result)
-	}
-}
-
-func parseValueToShort(value interface{}) uint16 {
-	if result, ok := value.(uint16); !ok {
-		return 0
-	} else {
-		return result
-	}
-}
-
-func parseValueToVlan(value interface{}) uint16 {
-	if result, ok := value.(uint16); !ok {
-		return 32767
-	} else {
-		return result
-	}
-}
-
-func parseValueToString(value interface{}) string {
-	if result, ok := value.(string); !ok {
-		return ""
-	} else {
-		return result
-	}
-}
-
-func parseValueToArrayByte(value interface{}) []byte {
-	if result, ok := value.([]byte); !ok {
-		return make([]byte, 0)
-	} else {
-		return result
-	}
-}
-
-func createKeyValuePairs(m map[string]interface{}) string {
-	b := new(bytes.Buffer)
-	for key, value := range m {
-		fmt.Fprintf(b, "%s=\"%v\"\n", key, value)
-	}
-	return b.String()
 }
 
 func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) {
@@ -249,15 +126,9 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 	ip := ""
 
 	if mapValue["addrv6"] != nil {
-		var netIp net.IP = mapValue["addrv6"].([]byte)
-
-		ip = netIp.To16().String()
-
+		ip = parseValueToIpv6(mapValue["addrv6"])
 	} else {
-		netIp := make(net.IP, 4)
-		binary.BigEndian.PutUint32(netIp, uint32(mapValue["addr"].(uint64)))
-
-		ip = netIp.String()
+		ip = parseValueToIpv4(mapValue["addr"])
 	}
 
 	if _, err := a.dnsStmt.Exec(
@@ -359,25 +230,15 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 	serverIP := ""
 
 	if mapValue["service_ipv6"] != nil {
-		var netIp net.IP = mapValue["service_ipv6"].([]byte)
-
-		serverIP = netIp.To16().String()
+		serverIP = parseValueToIpv6(mapValue["service_ipv6"])
 	} else {
-		netIp := make(net.IP, 4)
-		binary.BigEndian.PutUint32(netIp, uint32(mapValue["service_ip"].(uint64)))
-
-		serverIP = netIp.String()
+		serverIP = parseValueToIpv4(mapValue["service_ip"])
 	}
 
 	if mapValue["clnt_ipv6"] != nil {
-		var netIp net.IP = mapValue["clnt_ipv6"].([]byte)
-
-		clientIP = netIp.To16().String()
+		clientIP = parseValueToIpv6(mapValue["clnt_ipv6"])
 	} else {
-		netIp := make(net.IP, 4)
-		binary.BigEndian.PutUint32(netIp, uint32(mapValue["clnt_ip"].(uint64)))
-
-		clientIP = netIp.String()
+		clientIP = parseValueToIpv4(mapValue["clnt_ip"])
 	}
 
 	isBroadcastClient := 0
@@ -481,25 +342,21 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 func (a *Aggregator) Execute() {
 	a.commit()
 
-	defer func(a *Aggregator) {
-		if a.netIfaceStmt != nil {
-			a.netIfaceStmt.Close()
-		}
+	if a.netIfaceStmt != nil {
+		a.netIfaceStmt.Close()
+	}
 
-		if a.vlanStmt != nil {
-			a.vlanStmt.Close()
-		}
+	if a.vlanStmt != nil {
+		a.vlanStmt.Close()
+	}
 
-		if a.dnsStmt != nil {
-			a.dnsStmt.Close()
-		}
+	if a.dnsStmt != nil {
+		a.dnsStmt.Close()
+	}
 
-		if a.netSessionStmt != nil {
-			a.netSessionStmt.Close()
-		}
+	if a.netSessionStmt != nil {
+		a.netSessionStmt.Close()
+	}
 
-		a.connect.Close()
-	}(a)
-
-	a.close()
+	a.connect.Close()
 }

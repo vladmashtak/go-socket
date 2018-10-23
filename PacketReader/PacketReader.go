@@ -22,10 +22,11 @@ func NewPacketReader(buffer []byte) *PacketReader {
 }
 
 func (p *PacketReader) decompress() {
-	p.ReadInt()
+	length := p.ReadInt()
 	capacity := p.ReadInt()
 
-	log.Printf("Buffer capacity: %v", capacity)
+	log.Printf("ReadInt Buffer capacity: %v", length)
+	log.Printf("ReadInt Buffer capacity: %v", capacity)
 
 	var (
 		reader  io.ReadCloser

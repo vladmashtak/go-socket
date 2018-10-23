@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"engine-socket/Aggregator"
 	"engine-socket/Deserializer"
 	"engine-socket/PacketReader"
+	"io/ioutil"
 	"log"
+	"net"
 	"strings"
 	"time"
-
-	"github.com/tidwall/evio"
 )
 
 func runningtime(s string) (string, time.Time) {
@@ -22,74 +23,78 @@ func track(s string, startTime time.Time) {
 }
 
 func main() {
-	var events evio.Events
 
-	events.NumLoops = -1
+	ln, err := net.Listen("tcp", ":5000")
 
-	events.Opened = func(c evio.Conn) (out []byte, opts evio.Options, action evio.Action) {
-		c.SetContext(&evio.InputStream{})
-		log.Printf("Opened: laddr: %v: raddr: %v", c.LocalAddr(), c.RemoteAddr())
-		return
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	events.Closed = func(c evio.Conn, err error) (action evio.Action) {
-		log.Printf("Closed: %s: %s", c.LocalAddr().String(), c.RemoteAddr().String())
-		return
-	}
+	defer ln.Close()
 
-	events.Data = func(c evio.Conn, in []byte) (out []byte, action evio.Action) {
-		if in == nil {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Fatal(err)
 			return
 		}
+		go handleConnection(conn)
+	}
+}
 
-		defer track(runningtime("Execute"))
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	defer track(runningtime("Execute"))
 
-		packet := PacketReader.NewPacketReader(in)
+	reader := bufio.NewReader(conn)
 
-		message := Deserializer.NewMessage()
+	in, err := ioutil.ReadAll(reader)
 
-		message.Read(packet)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		instance := packet.ReadString()
-		// log.Printf("Read instance: %s", instance)
+	log.Printf("Input length: %v", len(in))
 
-		portId := packet.ReadString()
-		// log.Printf("Read portId: %s", portId)
+	packet := PacketReader.NewPacketReader(in)
 
-		size := packet.ReadInt()
-		// log.Printf("SZ: %v", size)
+	message := Deserializer.NewMessage()
 
-		var i uint32 = 0
+	message.Read(packet)
 
-		aggregator := Aggregator.NewAggregator()
+	instance := packet.ReadString()
+	// log.Printf("Read instance: %s", instance)
 
-		for i < size {
-			mapValue := make(map[string]interface{})
+	portId := packet.ReadString()
+	// log.Printf("Read portId: %s", portId)
 
-			message.ReadObject(packet, mapValue)
-			if len(mapValue) != 0 {
+	size := packet.ReadInt()
+	// log.Printf("SZ: %v", size)
 
-				caption := strings.ToLower(message.GetCaption())
+	var i uint32 = 0
 
-				switch caption {
-				case "protos":
-					aggregator.AddNetIfaceBatch(portId, instance, mapValue)
-				case "dns":
-					aggregator.AddDnsBatch(portId, instance, mapValue)
-				default:
-					aggregator.AddNetSessionBatch(portId, instance, mapValue, caption)
-				}
+	aggregator := Aggregator.NewAggregator()
+
+	for i < size {
+		mapValue := make(map[string]interface{})
+
+		message.ReadObject(packet, mapValue)
+		if len(mapValue) != 0 {
+
+			caption := strings.ToLower(message.GetCaption())
+
+			switch caption {
+			case "protos":
+				aggregator.AddNetIfaceBatch(portId, instance, mapValue)
+			case "dns":
+				aggregator.AddDnsBatch(portId, instance, mapValue)
+			default:
+				aggregator.AddNetSessionBatch(portId, instance, mapValue, caption)
 			}
-
-			i++
 		}
 
-		aggregator.Execute()
-
-		return
+		i++
 	}
 
-	if err := evio.Serve(events, "tcp://localhost:5000"); err != nil {
-		panic(err.Error())
-	}
+	aggregator.Execute()
 }
