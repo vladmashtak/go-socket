@@ -12,17 +12,8 @@ import (
 	"time"
 )
 
-func runningtime(s string) (string, time.Time) {
-	log.Println("Start:	", s)
-	return s, time.Now()
-}
-
-func track(s string, startTime time.Time) {
-	endTime := time.Now()
-	log.Println("End:	", s, "took", endTime.Sub(startTime))
-}
-
 func main() {
+	log.Println("Engine server")
 
 	ln, err := net.Listen("tcp", ":5000")
 
@@ -44,7 +35,6 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	defer track(runningtime("Execute"))
 
 	reader := bufio.NewReader(conn)
 
@@ -54,8 +44,6 @@ func handleConnection(conn net.Conn) {
 		log.Fatal(err)
 	}
 
-	log.Printf("Input length: %v", len(in))
-
 	packet := PacketReader.NewPacketReader(in)
 
 	message := Deserializer.NewMessage()
@@ -63,13 +51,15 @@ func handleConnection(conn net.Conn) {
 	message.Read(packet)
 
 	instance := packet.ReadString()
-	// log.Printf("Read instance: %s", instance)
+	log.Printf("Read instance: %s", instance)
 
 	portId := packet.ReadString()
 	// log.Printf("Read portId: %s", portId)
 
 	size := packet.ReadInt()
 	// log.Printf("SZ: %v", size)
+
+	startTime := time.Now()
 
 	var i uint32 = 0
 
@@ -97,4 +87,6 @@ func handleConnection(conn net.Conn) {
 	}
 
 	aggregator.Execute()
+
+	log.Println("Clickhouse time: ", time.Now().Sub(startTime))
 }

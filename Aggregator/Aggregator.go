@@ -340,6 +340,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 }
 
 func (a *Aggregator) Execute() {
+
 	a.commit()
 
 	if a.netIfaceStmt != nil {
