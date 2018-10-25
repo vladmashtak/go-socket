@@ -22,7 +22,7 @@ func Connect() (*sql.DB, error) {
 		if exception, ok := err.(*clickhouse.Exception); ok {
 			logger.Info(fmt.Sprintf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace))
 		} else {
-			logger.Error("Clickhouse", zap.Error(err))
+			logger.Info("Clickhouse", zap.Error(err))
 		}
 		return nil, err
 	}
@@ -34,9 +34,10 @@ func PrepareStatement(tx *sql.Tx, stmt string) (*sql.Stmt, error) {
 	logger := Logger.GetLogger()
 
 	if stmt, err := tx.Prepare(stmt); err != nil {
-		logger.Error("Error while preparing statement", zap.Error(err))
+		logger.Info("Error while preparing statement", zap.Error(err))
 		return nil, err
 	} else {
 		return stmt, nil
 	}
 }
+ 

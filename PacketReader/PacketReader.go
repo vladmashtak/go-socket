@@ -36,7 +36,7 @@ func (p *PacketReader) decompress() {
 	)
 
 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
-		logger.Error("Create archive reader", zap.Error(err))
+		logger.Info("Create archive reader", zap.Error(err))
 	}
 
 	defer reader.Close()

@@ -19,9 +19,8 @@ func init() {
 	}
 
 	flag.StringVar(&options.Host, "host", "127.0.0.1", "server host")
-	flag.UintVar(&options.Port, "port", 5000, "server port")
-	flag.StringVar(&options.LogsPath, "logsPath", "/opt/aqosta", "path for server logs")
-	flag.BoolVar(&options.Production, "prod", false, "production mode for application")
+	flag.UintVar(&options.Port, "port", 33333, "server port")
+	flag.StringVar(&options.LogsPath, "logsPath", "/opt/aqosta/logs", "path for server logs")
 
 	flag.Parse()
 }

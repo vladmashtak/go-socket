@@ -10,18 +10,11 @@ import (
 var logger *zap.Logger
 
 func init() {
-	var (
-		err error
-		cfg zap.Config
-	)
+	var err error
 
 	options := Config.GetOptions()
 
-	if options.Production {
-		cfg = zap.NewProductionConfig()
-	} else {
-		cfg = zap.NewDevelopmentConfig()
-	}
+	cfg := zap.NewProductionConfig()
 
 	cfg.OutputPaths[0] = fmt.Sprintf("%s/engine-logs", options.LogsPath)
 	cfg.ErrorOutputPaths[0] = fmt.Sprintf("%s/engine-errors", options.LogsPath)

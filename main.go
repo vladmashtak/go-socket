@@ -20,18 +20,22 @@ func main() {
 	options := Config.GetOptions()
 	logger := Logger.GetLogger()
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", options.Host, options.Port))
+	server := fmt.Sprintf("%s:%d", options.Host, options.Port)
+
+	ln, err := net.Listen("tcp", server)
 
 	if err != nil {
-		logger.Error("Can't create tcp server %v", zap.Error(err))
+		logger.Info("Can't create tcp server", zap.Error(err))
 	}
+
+	logger.Info("Server start work: " + server)
 
 	defer ln.Close()
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			logger.Error("Can't create tcp connection %v", zap.Error(err))
+			logger.Info("Can't create tcp connection", zap.Error(err))
 			continue
 		}
 		go handleConnection(conn)
@@ -47,7 +51,7 @@ func handleConnection(conn net.Conn) {
 	in, err := ioutil.ReadAll(reader)
 
 	if err != nil {
-		logger.Error("Can't read input %v", zap.Error(err))
+		logger.Info("Can't read input", zap.Error(err))
 	}
 
 	packet := PacketReader.NewPacketReader(in)
@@ -92,9 +96,9 @@ func handleConnection(conn net.Conn) {
 		i++
 	}
 
-	aggregator.Execute()
+	go aggregator.Execute()
 
 	logger.Info("Clickhouse: ", zap.Duration("sql query: ", time.Now().Sub(startTime)))
 
-	logger.Sync()
+	// logger.Sync()
 }

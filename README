@@ -1,0 +1,3 @@
+build flags: -host=... -port=... -logsPath=...
+
+build project: go build -ldflags="-w -s" -o engine-go main.go
