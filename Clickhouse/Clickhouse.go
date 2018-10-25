@@ -3,9 +3,9 @@ package Clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/kshvakov/clickhouse"
-	"go.uber.org/zap"
 )
 
 func Connect() (*sql.DB, error) {
@@ -17,7 +17,7 @@ func Connect() (*sql.DB, error) {
 
 	if err := connect.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
-			log.Println(fmt.Sprintf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+			log.Println(fmt.Sprintf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace))
 		} else {
 			log.Println("Clickhouse", err)
 		}
@@ -36,4 +36,3 @@ func PrepareStatement(tx *sql.Tx, stmt string) (*sql.Stmt, error) {
 		return stmt, nil
 	}
 }
- 

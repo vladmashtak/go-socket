@@ -23,9 +23,10 @@ func main() {
 
 	if err != nil {
 		log.Println("Can't create tcp server", err)
+		return
 	}
 
-	log.Println("Server start work: " + server)
+	log.Println("Server start work" + server)
 
 	defer ln.Close()
 
@@ -35,22 +36,38 @@ func main() {
 			log.Println("Can't create tcp connection", err)
 			continue
 		}
+
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+
 		go handleConnection(conn)
 	}
 }
 
 func handleConnection(conn net.Conn) {
+	var (
+		i      uint32 = 0
+		err    error
+		in     []byte
+		reader *bufio.Reader
+		packet *PacketReader.PacketReader
+	)
+
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
+	log.Println("Accept connection from", conn.RemoteAddr())
 
-	in, err := ioutil.ReadAll(reader)
+	reader = bufio.NewReader(conn)
+
+	in, err = ioutil.ReadAll(reader)
+
+	log.Println("Message length", len(in))
+
+	packet, err = PacketReader.NewPacketReader(in)
 
 	if err != nil {
-		log.Println("Can't read input", err)
+		log.Println("Read input", err)
+		return
 	}
-
-	packet := PacketReader.NewPacketReader(in)
 
 	message := Deserializer.NewMessage()
 
@@ -66,8 +83,6 @@ func handleConnection(conn net.Conn) {
 	// log.Printf("SZ: %v", size)
 
 	startTime := time.Now()
-
-	var i uint32 = 0
 
 	aggregator := Aggregator.NewAggregator()
 
@@ -92,7 +107,7 @@ func handleConnection(conn net.Conn) {
 		i++
 	}
 
-	aggregator.Execute()
+	log.Println("Clickhouse aggregate batch", time.Now().Sub(startTime))
 
-	log.Println("Clickhouse sql query: ", time.Now().Sub(startTime))
+	go aggregator.Execute()
 }

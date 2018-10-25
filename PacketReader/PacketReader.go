@@ -13,15 +13,15 @@ type PacketReader struct {
 	index  uint32
 }
 
-func NewPacketReader(buffer []byte) *PacketReader {
+func NewPacketReader(buffer []byte) (*PacketReader, error) {
 	p := PacketReader{buffer, 0}
 
-	p.decompress()
+	err := p.decompress()
 
-	return &p
+	return &p, err
 }
 
-func (p *PacketReader) decompress() {
+func (p *PacketReader) decompress() error {
 
 	p.ReadInt()
 	capacity := p.ReadInt()
@@ -33,7 +33,7 @@ func (p *PacketReader) decompress() {
 	)
 
 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
-		log.Println("Create archive reader ", err)
+		return err
 	}
 
 	defer reader.Close()
@@ -44,6 +44,8 @@ func (p *PacketReader) decompress() {
 
 	p.index = 0
 	p.buffer = message
+
+	return nil
 }
 
 func (p *PacketReader) shiftCursor(offset uint32) []byte {
