@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
-	"engine-socket/Logger"
 	"io"
-
-	"go.uber.org/zap"
+	"log"
 )
 
 type PacketReader struct {
@@ -24,7 +22,6 @@ func NewPacketReader(buffer []byte) *PacketReader {
 }
 
 func (p *PacketReader) decompress() {
-	logger := Logger.GetLogger()
 
 	p.ReadInt()
 	capacity := p.ReadInt()
@@ -36,13 +33,13 @@ func (p *PacketReader) decompress() {
 	)
 
 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
-		logger.Info("Create archive reader", zap.Error(err))
+		log.Println("Create archive reader ", err)
 	}
 
 	defer reader.Close()
 
 	if _, err = reader.Read(message); err != nil {
-		logger.Warn("Decompress", zap.Error(err))
+		log.Println("Decompress ", err)
 	}
 
 	p.index = 0

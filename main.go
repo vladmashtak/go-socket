@@ -5,37 +5,34 @@ import (
 	"engine-socket/Aggregator"
 	"engine-socket/Config"
 	"engine-socket/Deserializer"
-	"engine-socket/Logger"
 	"engine-socket/PacketReader"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"strings"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 func main() {
 	options := Config.GetOptions()
-	logger := Logger.GetLogger()
 
 	server := fmt.Sprintf("%s:%d", options.Host, options.Port)
 
 	ln, err := net.Listen("tcp", server)
 
 	if err != nil {
-		logger.Info("Can't create tcp server", zap.Error(err))
+		log.Println("Can't create tcp server", err)
 	}
 
-	logger.Info("Server start work: " + server)
+	log.Println("Server start work: " + server)
 
 	defer ln.Close()
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			logger.Info("Can't create tcp connection", zap.Error(err))
+			log.Println("Can't create tcp connection", err)
 			continue
 		}
 		go handleConnection(conn)
@@ -45,13 +42,12 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	logger := Logger.GetLogger()
 	reader := bufio.NewReader(conn)
 
 	in, err := ioutil.ReadAll(reader)
 
 	if err != nil {
-		logger.Info("Can't read input", zap.Error(err))
+		log.Println("Can't read input", err)
 	}
 
 	packet := PacketReader.NewPacketReader(in)
@@ -61,7 +57,7 @@ func handleConnection(conn net.Conn) {
 	message.Read(packet)
 
 	instance := packet.ReadString()
-	logger.Info("Read string", zap.String("instance name", instance))
+	log.Println("Read instance name", instance)
 
 	portId := packet.ReadString()
 	// log.Printf("Read portId: %s", portId)
@@ -96,9 +92,7 @@ func handleConnection(conn net.Conn) {
 		i++
 	}
 
-	go aggregator.Execute()
+	aggregator.Execute()
 
-	logger.Info("Clickhouse: ", zap.Duration("sql query: ", time.Now().Sub(startTime)))
-
-	// logger.Sync()
+	log.Println("Clickhouse sql query: ", time.Now().Sub(startTime))
 }

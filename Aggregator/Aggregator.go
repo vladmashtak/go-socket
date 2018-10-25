@@ -3,10 +3,8 @@ package Aggregator
 import (
 	"database/sql"
 	"engine-socket/Clickhouse"
-	"engine-socket/Logger"
+	"log"
 	"strings"
-
-	"go.uber.org/zap"
 )
 
 type Aggregator struct {
@@ -37,11 +35,9 @@ func (a *Aggregator) begin() error {
 }
 
 func (a *Aggregator) commit() {
-	logger := Logger.GetLogger()
-
 	if a.tx != nil {
 		if err := a.tx.Commit(); err != nil {
-			logger.Info("Cant't commit query", zap.Error(err))
+			log.Println("Cant't commit query ", err)
 		}
 	}
 }
@@ -53,10 +49,9 @@ func (a *Aggregator) close() {
 }
 
 func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) {
-	logger := Logger.GetLogger()
 
 	if err := a.begin(); err != nil {
-		logger.Info("Can't begin transaction", zap.Error(err))
+		log.Println("Can't begin transaction ", err)
 		return
 	}
 
@@ -87,17 +82,16 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 		protocol,
 		vlan,
 	); err != nil {
-		logger.Info("Can't execute statement AddNetIfaceBatch", zap.Error(err))
+		log.Println("Can't execute statement AddNetIfaceBatch ", err)
 	}
 
 	// a.AddVlanBatch(interfaceIndex, dpiInstance, vlan)
 }
 
 func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vlan uint16) {
-	logger := Logger.GetLogger()
 
 	if err := a.begin(); err != nil {
-		logger.Info("Can't begin transaction", zap.Error(err))
+		log.Println("Can't begin transaction ", err)
 		return
 	}
 
@@ -106,15 +100,13 @@ func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vla
 	}
 
 	if _, err := a.vlanStmt.Exec(interfaceIndex, dpiInstance, vlan); err != nil {
-		logger.Info("Can't execute statement AddVlanBatch", zap.Error(err))
+		log.Println("Can't execute statement AddVlanBatch ", err)
 	}
 }
 
 func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) {
-	logger := Logger.GetLogger()
-
 	if err := a.begin(); err != nil {
-		logger.Info("Can't begin transaction", zap.Error(err))
+		log.Println("Can't begin transaction ", err)
 		return
 	}
 
@@ -153,15 +145,14 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 		timestamp,
 		ip,
 	); err != nil {
-		logger.Info("Can't execute statement AddDnsBatch", zap.Error(err))
+		log.Println("Can't execute statement AddDnsBatch ", err)
 	}
 }
 
 func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}, caption string) {
-	logger := Logger.GetLogger()
 
 	if err := a.begin(); err != nil {
-		logger.Info("Can't begin transaction", zap.Error(err))
+		log.Println("Can't begin transaction ", err)
 		return
 	}
 
@@ -351,7 +342,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		vlan,
 		caption,
 	); err != nil {
-		logger.Info("Can't execute statement AddNetSessionBatch", zap.Error(err))
+		log.Println("Can't execute statement AddNetSessionBatch ", err)
 	}
 }
 
