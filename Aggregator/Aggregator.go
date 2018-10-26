@@ -8,12 +8,9 @@ import (
 )
 
 type Aggregator struct {
-	tx             *sql.Tx
-	connect        *sql.DB
-	netIfaceStmt   *sql.Stmt
-	vlanStmt       *sql.Stmt
-	netSessionStmt *sql.Stmt
-	dnsStmt        *sql.Stmt
+	tx      *sql.Tx
+	connect *sql.DB
+	stmt    *sql.Stmt
 }
 
 func NewAggregator() *Aggregator {
@@ -48,15 +45,21 @@ func (a *Aggregator) close() {
 	}
 }
 
-func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) {
+func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) (uint16, error) {
+	var (
+		vlan uint16 = 32767
+		err  error  = nil
+	)
 
-	if err := a.begin(); err != nil {
+	err = a.begin()
+
+	if err != nil {
 		log.Println("Can't begin transaction ", err)
-		return
+		return vlan, err
 	}
 
-	if a.netIfaceStmt == nil {
-		a.netIfaceStmt, _ = Clickhouse.PrepareStatement(a.tx, networkInterfaceStatisticStatement)
+	if a.stmt == nil {
+		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, networkInterfaceStatisticStatement)
 	}
 
 	timestamp := parseValueToLong(mapValue["timestamp"]) / 1000
@@ -68,9 +71,9 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 
 	protocol := mapValue["proto"].(string)
 
-	vlan := parseValueToVlan(mapValue["vlan"])
+	vlan = parseValueToVlan(mapValue["vlan"])
 
-	if _, err := a.netIfaceStmt.Exec(
+	if _, err = a.stmt.Exec(
 		interfaceIndex,
 		dpiInstance,
 		timestamp,
@@ -83,35 +86,42 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 		vlan,
 	); err != nil {
 		log.Println("Can't execute statement AddNetIfaceBatch ", err)
+		return vlan, err
 	}
 
-	// a.AddVlanBatch(interfaceIndex, dpiInstance, vlan)
+	return vlan, err
 }
 
-func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vlan uint16) {
+func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vlan uint16) error {
+	var err error = a.begin()
 
-	if err := a.begin(); err != nil {
+	if err != nil {
 		log.Println("Can't begin transaction ", err)
-		return
+		return err
 	}
 
-	if a.vlanStmt == nil {
-		a.vlanStmt, _ = Clickhouse.PrepareStatement(a.tx, vlanStatement)
+	if a.stmt == nil {
+		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, vlanStatement)
 	}
 
-	if _, err := a.vlanStmt.Exec(interfaceIndex, dpiInstance, vlan); err != nil {
+	if _, err = a.stmt.Exec(interfaceIndex, dpiInstance, vlan); err != nil {
 		log.Println("Can't execute statement AddVlanBatch ", err)
+		return err
 	}
+
+	return err
 }
 
-func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) {
-	if err := a.begin(); err != nil {
+func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) error {
+	var err error = a.begin()
+
+	if err != nil {
 		log.Println("Can't begin transaction ", err)
-		return
+		return err
 	}
 
-	if a.dnsStmt == nil {
-		a.dnsStmt, _ = Clickhouse.PrepareStatement(a.tx, dnsStatement)
+	if a.stmt == nil {
+		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, dnsStatement)
 	}
 
 	domain, ok := mapValue["c_name"].(string)
@@ -136,7 +146,7 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 		ip = parseValueToIpv4(mapValue["addr"])
 	}
 
-	if _, err := a.dnsStmt.Exec(
+	if _, err = a.stmt.Exec(
 		interfaceIndex,
 		dpiInstance,
 		domain,
@@ -146,18 +156,22 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 		ip,
 	); err != nil {
 		log.Println("Can't execute statement AddDnsBatch ", err)
+		return err
 	}
+
+	return err
 }
 
-func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}, caption string) {
+func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}, caption string) error {
+	var err error = a.begin()
 
-	if err := a.begin(); err != nil {
+	if err != nil {
 		log.Println("Can't begin transaction ", err)
-		return
+		return err
 	}
 
-	if a.netSessionStmt == nil {
-		a.netSessionStmt, _ = Clickhouse.PrepareStatement(a.tx, netSessionStatement)
+	if a.stmt == nil {
+		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, netSessionStatement)
 	}
 
 	protocol := parseValueToString(mapValue["srv_protocol"])
@@ -281,7 +295,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 
 	vlan := parseValueToVlan(mapValue["vlan"])
 
-	if _, err := a.netSessionStmt.Exec(
+	if _, err = a.stmt.Exec(
 		interfaceIndex,
 		dpiInstance,
 		protocol,
@@ -343,28 +357,19 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		caption,
 	); err != nil {
 		log.Println("Can't execute statement AddNetSessionBatch ", err)
+		return err
 	}
+
+	return err
 }
 
 func (a *Aggregator) Execute() {
 
 	a.commit()
 
-	if a.netIfaceStmt != nil {
-		a.netIfaceStmt.Close()
+	if a.stmt != nil {
+		a.stmt.Close()
 	}
 
-	if a.vlanStmt != nil {
-		a.vlanStmt.Close()
-	}
-
-	if a.dnsStmt != nil {
-		a.dnsStmt.Close()
-	}
-
-	if a.netSessionStmt != nil {
-		a.netSessionStmt.Close()
-	}
-
-	a.connect.Close()
+	a.close()
 }

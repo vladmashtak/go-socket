@@ -15,25 +15,35 @@ import (
 )
 
 func main() {
-	options := Config.GetOptions()
+	var (
+		err     error
+		server  string
+		tcpAddr *net.TCPAddr
+		ln      *net.TCPListener
+		options *Config.Options
+	)
 
-	server := fmt.Sprintf("%s:%d", options.Host, options.Port)
+	options = Config.GetOptions()
 
-	ln, err := net.Listen("tcp", server)
+	server = fmt.Sprintf("%s:%d", options.Host, options.Port)
+
+	tcpAddr, err = net.ResolveTCPAddr("tcp4", server)
+
+	ln, err = net.ListenTCP("tcp", tcpAddr)
 
 	if err != nil {
-		log.Println("Can't create tcp server", err)
+		log.Println("Can't create tcp4 server ", err)
 		return
 	}
 
-	log.Println("Server start work" + server)
+	log.Println("Server start work " + server)
 
 	defer ln.Close()
 
 	for {
-		conn, err := ln.Accept()
+		conn, err := ln.AcceptTCP()
 		if err != nil {
-			log.Println("Can't create tcp connection", err)
+			log.Println("Can't create connection ", err)
 			continue
 		}
 
@@ -54,13 +64,11 @@ func handleConnection(conn net.Conn) {
 
 	defer conn.Close()
 
-	log.Println("Accept connection from", conn.RemoteAddr())
+	log.Println("Accept connection from ", conn.RemoteAddr())
 
 	reader = bufio.NewReader(conn)
 
 	in, err = ioutil.ReadAll(reader)
-
-	log.Println("Message length", len(in))
 
 	packet, err = PacketReader.NewPacketReader(in)
 
@@ -74,7 +82,7 @@ func handleConnection(conn net.Conn) {
 	message.Read(packet)
 
 	instance := packet.ReadString()
-	log.Println("Read instance name", instance)
+	log.Println("Read instance name ", instance)
 
 	portId := packet.ReadString()
 	// log.Printf("Read portId: %s", portId)
@@ -86,28 +94,63 @@ func handleConnection(conn net.Conn) {
 
 	aggregator := Aggregator.NewAggregator()
 
+	vlanBatch := make([]uint16, size/2, size)
+
 	for i < size {
 		mapValue := make(map[string]interface{})
 
 		message.ReadObject(packet, mapValue)
+
 		if len(mapValue) != 0 {
 
 			caption := strings.ToLower(message.GetCaption())
 
 			switch caption {
 			case "protos":
-				aggregator.AddNetIfaceBatch(portId, instance, mapValue)
+				{
+					var vlan uint16
+
+					vlan, err = aggregator.AddNetIfaceBatch(portId, instance, mapValue)
+
+					vlanBatch = append(vlanBatch, vlan)
+				}
 			case "dns":
-				aggregator.AddDnsBatch(portId, instance, mapValue)
+				{
+					err = aggregator.AddDnsBatch(portId, instance, mapValue)
+				}
 			default:
-				aggregator.AddNetSessionBatch(portId, instance, mapValue, caption)
+				{
+					err = aggregator.AddNetSessionBatch(portId, instance, mapValue, caption)
+				}
 			}
+		}
+
+		if err != nil {
+			log.Println("Close connection")
+			return
 		}
 
 		i++
 	}
 
-	log.Println("Clickhouse aggregate batch", time.Now().Sub(startTime))
+	if len(vlanBatch) != 0 {
+		go inserVlan(portId, instance, vlanBatch)
+	}
+
+	log.Println("Clickhouse aggregate batch ", time.Now().Sub(startTime))
 
 	go aggregator.Execute()
+
+}
+
+func inserVlan(portId string, instance string, batch []uint16) {
+	aggr := Aggregator.NewAggregator()
+
+	for _, vlan := range batch {
+		if err := aggr.AddVlanBatch(portId, instance, vlan); err != nil {
+			log.Println("Error insert vlan")
+		}
+	}
+
+	aggr.Execute()
 }
