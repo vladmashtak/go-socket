@@ -103,7 +103,6 @@ func insertMessage(packet *PacketReader.PacketReader) {
 	message.Read(packet)
 
 	instance := packet.ReadString()
-	logger.Info("Read", zap.String("instance name", instance))
 
 	portId := packet.ReadString()
 
@@ -123,7 +122,7 @@ func insertMessage(packet *PacketReader.PacketReader) {
 			caption := strings.ToLower(message.GetCaption())
 
 			switch caption {
-			case "protos":
+			case Aggregator.PROTOCOLS:
 				{
 					var vlan uint16
 
@@ -131,7 +130,7 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 					vlanBatch[i] = vlan
 				}
-			case "dns":
+			case Aggregator.DNS:
 				{
 					err = aggregator.AddDnsBatch(portId, instance, mapValue)
 				}
@@ -143,20 +142,20 @@ func insertMessage(packet *PacketReader.PacketReader) {
 		}
 
 		if err != nil {
-			logger.Info("Can't deserialize data", zap.Error(err))
+			logger.Info("Can't create batch", zap.Error(err))
 			return
 		}
 
 		i++
 	}
 
-	logger.Info("Aggregate batch data", zap.Duration("time", time.Now().Sub(startTime)))
-
 	if len(vlanBatch) != 0 {
 		go inserVlan(portId, instance, vlanBatch)
 	}
 
 	aggregator.Execute()
+
+	logger.Info("Aggregate", zap.String("instance name ", instance), zap.Uint32("packet size", size), zap.Duration("time", time.Now().Sub(startTime)))
 }
 
 func inserVlan(portId string, instance string, batch []uint16) {

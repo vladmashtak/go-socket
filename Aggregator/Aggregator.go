@@ -62,16 +62,16 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, networkInterfaceStatisticStatement)
 	}
 
-	timestamp := parseValueToLong(mapValue["timestamp"]) / 1000
-	bytes := parseValueToLong(mapValue["bytes"])
-	pkts := parseValueToLong(mapValue["pkts"])
-	session := parseValueToLong(mapValue["session"])
-	outPkts := parseValueToLong(mapValue["out_pkts"])
-	outBytes := parseValueToLong(mapValue["out_bytes"])
+	timestamp := parseValueToLong(mapValue[TIMESTAMP]) / 1000
+	bytes := parseValueToLong(mapValue[BYTES])
+	pkts := parseValueToLong(mapValue[PKTS])
+	sessions := parseValueToLong(mapValue[SESSIONS])
+	outPkts := parseValueToLong(mapValue[OUT_PKTS])
+	outBytes := parseValueToLong(mapValue[OUT_BYTES])
 
-	protocol := parseValueToString(mapValue["proto"])
+	protocol := parseValueToString(mapValue[PROTO])
 
-	vlan = parseValueToVlan(mapValue["vlan"])
+	vlan = parseValueToVlan(mapValue[VLAN])
 
 	if _, err = a.stmt.Exec(
 		interfaceIndex,
@@ -79,7 +79,7 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 		timestamp,
 		bytes,
 		pkts,
-		session,
+		sessions,
 		outPkts,
 		outBytes,
 		protocol,
@@ -124,26 +124,26 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, dnsStatement)
 	}
 
-	domain, ok := mapValue["c_name"].(string)
+	domain, ok := mapValue[DNS_NAME].(string)
 
 	if !ok {
 		domain = ""
 	} else {
-		if strings.HasPrefix(domain, "www") {
-			domain = domain[len("www"):]
+		if strings.HasPrefix(domain, www) {
+			domain = domain[len(www):]
 		}
 	}
 
-	ttl := parseValueToLong(mapValue["ttl"])
-	count := parseValueToInt(mapValue["count"])
-	timestamp := parseValueToLong(mapValue["timestamp"])
+	ttl := parseValueToLong(mapValue[TTL])
+	count := parseValueToInt(mapValue[COUNT])
+	timestamp := parseValueToLong(mapValue[TIMESTAMP])
 
 	ip := ""
 
-	if mapValue["addrv6"] != nil {
-		ip = parseValueToIpv6(mapValue["addrv6"])
+	if mapValue[ADDRV6] != nil {
+		ip = parseValueToIpv6(mapValue[ADDRV6])
 	} else {
-		ip = parseValueToIpv4(mapValue["addr"])
+		ip = parseValueToIpv4(mapValue[ADDR])
 	}
 
 	if _, err = a.stmt.Exec(
@@ -174,54 +174,54 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 		a.stmt, _ = Clickhouse.PrepareStatement(a.tx, netSessionStatement)
 	}
 
-	protocol := parseValueToString(mapValue["srv_protocol"])
-	groupId := parseValueToString(mapValue["group_id"])
-	serverPort := parseValueToInt(mapValue["service_port"])
-	clientPort := parseValueToInt(mapValue["clnt_port"])
+	protocol := parseValueToString(mapValue[PROTOCOL])
+	groupId := parseValueToString(mapValue[GROUP_ID])
+	serverPort := parseValueToInt(mapValue[SERVER_PORT])
+	clientPort := parseValueToInt(mapValue[CLIENT_PORT])
 
-	startTime := parseValueToLong(mapValue["start"]) / 1000
-	endTime := parseValueToLong(mapValue["end"]) / 1000
+	startTime := parseValueToLong(mapValue[START_TIME]) / 1000
+	endTime := parseValueToLong(mapValue[END_TIME]) / 1000
 
-	state := parseValueToLong(mapValue["state"])
+	state := parseValueToLong(mapValue[STATE])
 
-	macServer := parseValueToLong(mapValue["mac_srv"])
-	macClient := parseValueToLong(mapValue["mac_clnt"])
+	macServer := parseValueToLong(mapValue[MAC_SERVER])
+	macClient := parseValueToLong(mapValue[MAC_CLIENT])
 
-	rtt := parseValueToLong(mapValue["rtt"]) / 1000
-	art := parseValueToLong(mapValue["art"]) / 1000
+	rtt := parseValueToLong(mapValue[RTT]) / 1000
+	art := parseValueToLong(mapValue[ART]) / 1000
 
-	fromSrvPckts := parseValueToLong(mapValue["from_srv_pckts"])
-	fromSrvBytes := parseValueToLong(mapValue["from_srv_bytes"])
-	fromSrvPayload := parseValueToLong(mapValue["from_srv_payload"])
+	fromSrvPckts := parseValueToLong(mapValue[FROM_SRV_PCKTS])
+	fromSrvBytes := parseValueToLong(mapValue[FROM_SRV_BYTES])
+	fromSrvPayload := parseValueToLong(mapValue[FROM_SRV_PAYLOAD])
 
-	fromClntPckts := parseValueToLong(mapValue["from_clntpckts"])
-	fromClntBytes := parseValueToLong(mapValue["from_clnt_bytes"])
-	fromClntPayload := parseValueToLong(mapValue["from_clnt_payload"])
+	fromClntPckts := parseValueToLong(mapValue[FROM_CLNT_PKTS])
+	fromClntBytes := parseValueToLong(mapValue[FROM_CLNT_BYTES])
+	fromClntPayload := parseValueToLong(mapValue[FROM_CLNT_PAYLOAD])
 
-	fragmentsFromSrv := parseValueToLong(mapValue["fragments_from_srv"])
-	fragmentsBytesFromSrv := parseValueToLong(mapValue["fragments_bytes_from_srv"])
-	fragmentsFromClnt := parseValueToLong(mapValue["fragments_from_clnt"])
-	fragmentsBytesFromClnt := parseValueToLong(mapValue["fragments_bytes_from_clnt"])
+	fragmentsFromSrv := parseValueToLong(mapValue[FRAGMENTS_FROM_SRV])
+	fragmentsBytesFromSrv := parseValueToLong(mapValue[FRAGMENTS_BYTES_FROM_SRV])
+	fragmentsFromClnt := parseValueToLong(mapValue[FRAGMENTS_FROM_CLNT])
+	fragmentsBytesFromClnt := parseValueToLong(mapValue[FRAGMENTS_BYTES_FROM_CLNT])
 
-	reorderFromSrv := parseValueToLong(mapValue["reorder_from_srv"])
-	reorderBytesFromSrv := parseValueToLong(mapValue["reorder_bytes_from_srv"])
-	reorderFromClnt := parseValueToLong(mapValue["reorder_from_clnt"])
-	reorderBytesFromClnt := parseValueToLong(mapValue["reorder_bytes_from_clnt"])
+	reorderFromSrv := parseValueToLong(mapValue[REORDER_FROM_SRV])
+	reorderBytesFromSrv := parseValueToLong(mapValue[REORDER_BYTES_FROM_SRV])
+	reorderFromClnt := parseValueToLong(mapValue[REORDER_FROM_CLNT])
+	reorderBytesFromClnt := parseValueToLong(mapValue[REORDER_BYTES_FROM_CLNT])
 
-	retransPktsFromSrv := parseValueToLong(mapValue["retrans_pkts_from_srv"])
-	retransBytesFromSrv := parseValueToLong(mapValue["retrans_bytes_from_srv"])
-	retransPktsFromClnt := parseValueToLong(mapValue["retrans_pkts_from_clnt"])
-	retransBytesFromClnt := parseValueToLong(mapValue["retrans_bytes_from_clnt"])
+	retransPktsFromSrv := parseValueToLong(mapValue[RETRANS_PKTS_FROM_SRV])
+	retransBytesFromSrv := parseValueToLong(mapValue[RETRANS_BYTES_FROM_SRV])
+	retransPktsFromClnt := parseValueToLong(mapValue[RETRANS_PKTS_FROM_CLNT])
+	retransBytesFromClnt := parseValueToLong(mapValue[RETRANS_BYTES_FROM_CLNT])
 
-	lostFromSrv := parseValueToLong(mapValue["lost_from_srv"])
-	lostFromClnt := parseValueToLong(mapValue["lost_from_clnt"])
+	lostFromSrv := parseValueToLong(mapValue[LOST_FROM_SRV])
+	lostFromClnt := parseValueToLong(mapValue[LOST_FROM_CLNT])
 
-	tos := parseValueToLong(mapValue["tos"])
-	cos := parseValueToLong(mapValue["cos"])
-	cif := parseValueToLong(mapValue["cif"])
-	mpls := parseValueToLong(mapValue["mpls"])
+	tos := parseValueToLong(mapValue[TOS])
+	cos := parseValueToLong(mapValue[COS])
+	cif := parseValueToLong(mapValue[CIF])
+	mpls := parseValueToLong(mapValue[MPLS])
 
-	version := parseValueToString(mapValue["version"])
+	version := parseValueToString(mapValue[VERSION])
 
 	httpUrl := ""
 	httpMethod := ""
@@ -234,42 +234,42 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 	httpUserAgent := ""
 	httpEncoding := ""
 
-	if strings.ToUpper(caption) == "HTTP" {
-		httpUrl = parseValueToString(mapValue["http_url"])
-		httpMethod = parseValueToString(mapValue["http_method"])
-		httpResponse = parseValueToString(mapValue["http_response"])
-		httpContext = parseValueToString(mapValue["http_context"])
-		httpForwarded = parseValueToString(mapValue["http_forwarded"])
-		httpOrigin = parseValueToString(mapValue["http_origin"])
-		httpCookie = parseValueToString(mapValue["http_cookie"])
-		httpXSessionType = parseValueToString(mapValue["http_x_session_type"])
-		httpUserAgent = parseValueToString(mapValue["http_user_agent"])
-		httpEncoding = parseValueToString(mapValue["http_encoding"])
+	if caption == HTTP {
+		httpUrl = parseValueToString(mapValue[HTTP_URL])
+		httpMethod = parseValueToString(mapValue[HTTP_METHOD])
+		httpResponse = parseValueToString(mapValue[HTTP_RESPONSE])
+		httpContext = parseValueToString(mapValue[HTTP_CONTEXT])
+		httpForwarded = parseValueToString(mapValue[HTTP_FORWARDED])
+		httpOrigin = parseValueToString(mapValue[HTTP_ORIGIN])
+		httpCookie = parseValueToString(mapValue[HTTP_COOKIE])
+		httpXSessionType = parseValueToString(mapValue[HTTP_X_SESSION_TYPE])
+		httpUserAgent = parseValueToString(mapValue[HTTP_USER_AGENT])
+		httpEncoding = parseValueToString(mapValue[HTTP_ENCODING])
 	}
 
 	clientIP := ""
 	serverIP := ""
 
-	if mapValue["service_ipv6"] != nil {
-		serverIP = parseValueToIpv6(mapValue["service_ipv6"])
+	if mapValue[SERVER_IP6] != nil {
+		serverIP = parseValueToIpv6(mapValue[SERVER_IP6])
 	} else {
-		serverIP = parseValueToIpv4(mapValue["service_ip"])
+		serverIP = parseValueToIpv4(mapValue[SERVER_IP])
 	}
 
-	if mapValue["clnt_ipv6"] != nil {
-		clientIP = parseValueToIpv6(mapValue["clnt_ipv6"])
+	if mapValue[CLIENT_IP6] != nil {
+		clientIP = parseValueToIpv6(mapValue[CLIENT_IP6])
 	} else {
-		clientIP = parseValueToIpv4(mapValue["clnt_ip"])
+		clientIP = parseValueToIpv4(mapValue[CLIENT_IP6])
 	}
 
 	isBroadcastClient := 0
 	isBroadcastServer := 0
 
-	if strings.HasSuffix(clientIP, "255") || clientIP == "0:0:0:0:0:0:0:0" {
+	if strings.HasSuffix(clientIP, BROADCAST) || clientIP == DEFAULT_IP6_ROUTE {
 		isBroadcastClient = 1
 	}
 
-	if strings.HasSuffix(serverIP, "255") || serverIP == "0:0:0:0:0:0:0:0" {
+	if strings.HasSuffix(serverIP, BROADCAST) || serverIP == DEFAULT_IP6_ROUTE {
 		isBroadcastServer = 1
 	}
 
@@ -277,23 +277,23 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 	serverCertificate := ""
 	clientCertificate := ""
 
-	if strings.ToUpper(caption) == "SSL" {
-		serverCertificate = parseValueToString(mapValue["server_certificate"])
+	if caption == SSL {
+		serverCertificate = parseValueToString(mapValue[SERVER_CERTIFICATE])
 
-		clientCertificate = parseValueToString(mapValue["client_certificate"])
+		clientCertificate = parseValueToString(mapValue[CLIENT_CERTIFICATE])
 
 		if len(serverCertificate) != 0 {
-			if strings.HasSuffix(serverCertificate, "*.") {
+			if strings.HasSuffix(serverCertificate, CERTIFICATE_DOMAIN_PREFIX) {
 				domain = serverCertificate[2:]
 			}
 		} else if len(clientCertificate) != 0 {
-			if strings.HasSuffix(clientCertificate, "*.") {
+			if strings.HasSuffix(clientCertificate, CERTIFICATE_DOMAIN_PREFIX) {
 				domain = clientCertificate[2:]
 			}
 		}
 	}
 
-	vlan := parseValueToVlan(mapValue["vlan"])
+	vlan := parseValueToVlan(mapValue[VLAN])
 
 	if _, err = a.stmt.Exec(
 		interfaceIndex,
