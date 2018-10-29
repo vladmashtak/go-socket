@@ -69,7 +69,7 @@ func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string,
 	outPkts := parseValueToLong(mapValue["out_pkts"])
 	outBytes := parseValueToLong(mapValue["out_bytes"])
 
-	protocol := mapValue["proto"].(string)
+	protocol := parseValueToString(mapValue["proto"])
 
 	vlan = parseValueToVlan(mapValue["vlan"])
 

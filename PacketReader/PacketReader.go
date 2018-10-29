@@ -2,10 +2,16 @@ package PacketReader
 
 import (
 	"bytes"
-	"compress/zlib"
 	"encoding/binary"
 	"io"
 	"log"
+
+	"github.com/klauspost/compress/zlib"
+)
+
+const (
+	Integer uint32 = 4
+	Long    uint32 = 8
 )
 
 type PacketReader struct {
@@ -38,8 +44,8 @@ func (p *PacketReader) decompress() error {
 
 	defer reader.Close()
 
-	if _, err = reader.Read(message); err != nil {
-		log.Println("Decompress ", err)
+	if _, err = reader.Read(message); err != nil && err.Error() != "EOF" {
+		log.Println("Decompress", err)
 	}
 
 	p.index = 0
@@ -58,16 +64,12 @@ func (p *PacketReader) shiftCursor(offset uint32) []byte {
 }
 
 func (p *PacketReader) ReadInt() uint32 {
-	const Integer = 4
-
 	in := p.shiftCursor(Integer)
 
 	return binary.BigEndian.Uint32(in)
 }
 
 func (p *PacketReader) ReadLong() uint64 {
-	const Long = 8
-
 	in := p.shiftCursor(Long)
 
 	return binary.BigEndian.Uint64(in)

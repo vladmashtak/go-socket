@@ -42,6 +42,7 @@ func main() {
 
 	for {
 		conn, err := ln.AcceptTCP()
+
 		if err != nil {
 			log.Println("Can't create connection ", err)
 			continue
@@ -53,16 +54,13 @@ func main() {
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn *net.TCPConn) {
 	var (
-		i      uint32 = 0
 		err    error
 		in     []byte
 		reader *bufio.Reader
 		packet *PacketReader.PacketReader
 	)
-
-	defer conn.Close()
 
 	log.Println("Accept connection from ", conn.RemoteAddr())
 
@@ -77,12 +75,29 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
+	go insertMessage(packet)
+
+	defer func(c *net.TCPConn) {
+		log.Println("End connection from ", c.RemoteAddr())
+
+		c.Close()
+	}(conn)
+}
+
+func insertMessage(packet *PacketReader.PacketReader) {
+	var (
+		i   uint32
+		err error
+	)
+
+	startTime := time.Now()
+
 	message := Deserializer.NewMessage()
 
 	message.Read(packet)
 
 	instance := packet.ReadString()
-	log.Println("Read instance name ", instance)
+	log.Println("Read instance name", instance)
 
 	portId := packet.ReadString()
 	// log.Printf("Read portId: %s", portId)
@@ -90,11 +105,9 @@ func handleConnection(conn net.Conn) {
 	size := packet.ReadInt()
 	// log.Printf("SZ: %v", size)
 
-	startTime := time.Now()
-
 	aggregator := Aggregator.NewAggregator()
 
-	vlanBatch := make([]uint16, size/2, size)
+	vlanBatch := make([]uint16, size)
 
 	for i < size {
 		mapValue := make(map[string]interface{})
@@ -112,7 +125,7 @@ func handleConnection(conn net.Conn) {
 
 					vlan, err = aggregator.AddNetIfaceBatch(portId, instance, mapValue)
 
-					vlanBatch = append(vlanBatch, vlan)
+					vlanBatch[i] = vlan
 				}
 			case "dns":
 				{
@@ -126,31 +139,30 @@ func handleConnection(conn net.Conn) {
 		}
 
 		if err != nil {
-			log.Println("Close connection")
+			log.Println("Can't deserialize data")
 			return
 		}
 
 		i++
 	}
 
+	log.Println("Aggregate batch data time ", time.Now().Sub(startTime))
+
 	if len(vlanBatch) != 0 {
 		go inserVlan(portId, instance, vlanBatch)
 	}
 
-	log.Println("Clickhouse aggregate batch ", time.Now().Sub(startTime))
-
-	go aggregator.Execute()
-
+	aggregator.Execute()
 }
 
 func inserVlan(portId string, instance string, batch []uint16) {
-	aggr := Aggregator.NewAggregator()
+	aggregator := Aggregator.NewAggregator()
 
 	for _, vlan := range batch {
-		if err := aggr.AddVlanBatch(portId, instance, vlan); err != nil {
+		if err := aggregator.AddVlanBatch(portId, instance, vlan); err != nil {
 			log.Println("Error insert vlan")
 		}
 	}
 
-	aggr.Execute()
+	aggregator.Execute()
 }
