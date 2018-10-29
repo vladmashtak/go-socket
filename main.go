@@ -5,13 +5,15 @@ import (
 	"engine-socket/Aggregator"
 	"engine-socket/Config"
 	"engine-socket/Deserializer"
+	"engine-socket/Logger"
 	"engine-socket/PacketReader"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -21,30 +23,32 @@ func main() {
 		tcpAddr *net.TCPAddr
 		ln      *net.TCPListener
 		options *Config.Options
+		logger  = Logger.GetLogger()
 	)
 
 	options = Config.GetOptions()
 
-	server = fmt.Sprintf("%s:%d", options.Host, options.Port)
+	server = fmt.Sprintf(":%d", options.Port)
 
 	tcpAddr, err = net.ResolveTCPAddr("tcp4", server)
 
 	ln, err = net.ListenTCP("tcp", tcpAddr)
 
 	if err != nil {
-		log.Println("Can't create tcp4 server ", err)
+		logger.Info("Can't create tcp4 server ", zap.Error(err))
 		return
 	}
 
-	log.Println("Server start work " + server)
+	logger.Info("Start work ", zap.String("server", server))
 
+	defer logger.Sync()
 	defer ln.Close()
 
 	for {
 		conn, err := ln.AcceptTCP()
 
 		if err != nil {
-			log.Println("Can't create connection ", err)
+			logger.Info("Can't create connection ", zap.Error(err))
 			continue
 		}
 
@@ -60,9 +64,10 @@ func handleConnection(conn *net.TCPConn) {
 		in     []byte
 		reader *bufio.Reader
 		packet *PacketReader.PacketReader
+		logger = Logger.GetLogger()
 	)
 
-	log.Println("Accept connection from ", conn.RemoteAddr())
+	logger.Info("Accept connection ", zap.String("address", conn.RemoteAddr().String()))
 
 	reader = bufio.NewReader(conn)
 
@@ -71,14 +76,14 @@ func handleConnection(conn *net.TCPConn) {
 	packet, err = PacketReader.NewPacketReader(in)
 
 	if err != nil {
-		log.Println("Read input", err)
+		logger.Info("Read input", zap.Error(err))
 		return
 	}
 
 	go insertMessage(packet)
 
 	defer func(c *net.TCPConn) {
-		log.Println("End connection from ", c.RemoteAddr())
+		logger.Info("End connection ", zap.String("address", c.RemoteAddr().String()))
 
 		c.Close()
 	}(conn)
@@ -86,8 +91,9 @@ func handleConnection(conn *net.TCPConn) {
 
 func insertMessage(packet *PacketReader.PacketReader) {
 	var (
-		i   uint32
-		err error
+		i      uint32
+		err    error
+		logger = Logger.GetLogger()
 	)
 
 	startTime := time.Now()
@@ -97,13 +103,11 @@ func insertMessage(packet *PacketReader.PacketReader) {
 	message.Read(packet)
 
 	instance := packet.ReadString()
-	log.Println("Read instance name", instance)
+	logger.Info("Read", zap.String("instance name", instance))
 
 	portId := packet.ReadString()
-	// log.Printf("Read portId: %s", portId)
 
 	size := packet.ReadInt()
-	// log.Printf("SZ: %v", size)
 
 	aggregator := Aggregator.NewAggregator()
 
@@ -139,14 +143,14 @@ func insertMessage(packet *PacketReader.PacketReader) {
 		}
 
 		if err != nil {
-			log.Println("Can't deserialize data")
+			logger.Info("Can't deserialize data", zap.Error(err))
 			return
 		}
 
 		i++
 	}
 
-	log.Println("Aggregate batch data time ", time.Now().Sub(startTime))
+	logger.Info("Aggregate batch data", zap.Duration("time", time.Now().Sub(startTime)))
 
 	if len(vlanBatch) != 0 {
 		go inserVlan(portId, instance, vlanBatch)
@@ -156,11 +160,14 @@ func insertMessage(packet *PacketReader.PacketReader) {
 }
 
 func inserVlan(portId string, instance string, batch []uint16) {
-	aggregator := Aggregator.NewAggregator()
+	var (
+		aggregator = Aggregator.NewAggregator()
+		logger     = Logger.GetLogger()
+	)
 
 	for _, vlan := range batch {
 		if err := aggregator.AddVlanBatch(portId, instance, vlan); err != nil {
-			log.Println("Error insert vlan")
+			logger.Error("Error insert vlan", zap.Error(err))
 		}
 	}
 

@@ -2,13 +2,15 @@ package Clickhouse
 
 import (
 	"database/sql"
+	"engine-socket/Logger"
 	"fmt"
-	"log"
 
 	"github.com/kshvakov/clickhouse"
+	"go.uber.org/zap"
 )
 
 func Connect() (*sql.DB, error) {
+	logger := Logger.GetLogger()
 	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9001?database=aqosta")
 
 	if err != nil {
@@ -17,9 +19,9 @@ func Connect() (*sql.DB, error) {
 
 	if err := connect.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
-			log.Println(fmt.Sprintf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace))
+			logger.Info(fmt.Sprintf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace))
 		} else {
-			log.Println("Clickhouse", err)
+			logger.Info("Clickhouse", zap.Error(err))
 		}
 		return nil, err
 	}
@@ -28,9 +30,10 @@ func Connect() (*sql.DB, error) {
 }
 
 func PrepareStatement(tx *sql.Tx, stmt string) (*sql.Stmt, error) {
+	logger := Logger.GetLogger()
 
 	if stmt, err := tx.Prepare(stmt); err != nil {
-		log.Println("Error while preparing statement", err)
+		logger.Info("Error while preparing statement", zap.Error(err))
 		return nil, err
 	} else {
 		return stmt, nil

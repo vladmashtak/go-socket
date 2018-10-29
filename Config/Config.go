@@ -18,7 +18,6 @@ func init() {
 		options = &Options{}
 	}
 
-	flag.StringVar(&options.Host, "host", "", "server host")
 	flag.UintVar(&options.Port, "port", 33333, "server port")
 	flag.StringVar(&options.LogsPath, "logsPath", "/opt/aqosta/logs", "path for server logs")
 
