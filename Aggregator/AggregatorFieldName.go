@@ -83,4 +83,5 @@ const (
 	DEFAULT_IP6_ROUTE         = "0:0:0:0:0:0:0:0"
 	CERTIFICATE_DOMAIN_PREFIX = "*."
 	www                       = "www."
+	SHORT_VLAN                = 32767
 )

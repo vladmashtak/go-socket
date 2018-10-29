@@ -76,7 +76,7 @@ func handleConnection(conn *net.TCPConn) {
 	packet, err = PacketReader.NewPacketReader(in)
 
 	if err != nil {
-		logger.Info("Read input", zap.Error(err))
+		logger.Info("Can't read input", zap.Error(err))
 		return
 	}
 
@@ -102,6 +102,8 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 	message.Read(packet)
 
+	caption := strings.ToLower(message.GetCaption())
+
 	instance := packet.ReadString()
 
 	portId := packet.ReadString()
@@ -110,7 +112,7 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 	aggregator := Aggregator.NewAggregator()
 
-	vlanBatch := make([]uint16, size)
+	vlanBatch := make([]uint16, 100)
 
 	for i < size {
 		mapValue := make(map[string]interface{})
@@ -119,8 +121,6 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 		if len(mapValue) != 0 {
 
-			caption := strings.ToLower(message.GetCaption())
-
 			switch caption {
 			case Aggregator.PROTOCOLS:
 				{
@@ -128,7 +128,9 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 					vlan, err = aggregator.AddNetIfaceBatch(portId, instance, mapValue)
 
-					vlanBatch[i] = vlan
+					if vlan < Aggregator.SHORT_VLAN {
+						vlanBatch = append(vlanBatch, vlan)
+					}
 				}
 			case Aggregator.DNS:
 				{
@@ -155,7 +157,7 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 	aggregator.Execute()
 
-	logger.Info("Aggregate", zap.String("instance name ", instance), zap.Uint32("packet size", size), zap.Duration("time", time.Now().Sub(startTime)))
+	logger.Info("Aggregate", zap.String("interface name ", instance), zap.String("type", caption), zap.Uint32("packet size", size), zap.Duration("time", time.Now().Sub(startTime)))
 }
 
 func inserVlan(portId string, instance string, batch []uint16) {

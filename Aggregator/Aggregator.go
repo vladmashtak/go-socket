@@ -47,7 +47,7 @@ func (a *Aggregator) close() {
 
 func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) (uint16, error) {
 	var (
-		vlan uint16 = 32767
+		vlan uint16 = SHORT_VLAN
 		err  error  = nil
 	)
 
