@@ -63,7 +63,6 @@ func handleConnection(conn *net.TCPConn) {
 		err    error
 		in     []byte
 		reader *bufio.Reader
-		packet *PacketReader.PacketReader
 		logger = Logger.GetLogger()
 	)
 
@@ -73,14 +72,12 @@ func handleConnection(conn *net.TCPConn) {
 
 	in, err = ioutil.ReadAll(reader)
 
-	packet, err = PacketReader.NewPacketReader(in)
-
 	if err != nil {
-		logger.Info("Can't read input", zap.Error(err))
+		logger.Info("Can't read input stream", zap.Error(err))
 		return
 	}
 
-	go insertMessage(packet)
+	go insertMessage(in)
 
 	defer func(c *net.TCPConn) {
 		logger.Info("End connection ", zap.String("address", c.RemoteAddr().String()))
@@ -89,14 +86,23 @@ func handleConnection(conn *net.TCPConn) {
 	}(conn)
 }
 
-func insertMessage(packet *PacketReader.PacketReader) {
+func insertMessage(in []byte) {
 	var (
-		i      uint32
-		err    error
-		logger = Logger.GetLogger()
+		i         uint32
+		vlanCount uint32
+		err       error
+		logger    = Logger.GetLogger()
+		packet    *PacketReader.PacketReader
 	)
 
 	startTime := time.Now()
+
+	packet, err = PacketReader.NewPacketReader(in)
+
+	if err != nil {
+		logger.Info("Can't read packet", zap.Error(err))
+		return
+	}
 
 	message := Deserializer.NewMessage()
 
@@ -108,14 +114,15 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 	portId := packet.ReadString()
 
-	size := packet.ReadInt()
+	packetSize := packet.ReadInt()
 
 	aggregator := Aggregator.NewAggregator()
 
 	vlanBatch := make([]uint16, 100)
 
-	for i < size {
-		mapValue := make(map[string]interface{})
+	mapValue := make(map[string]interface{}, message.GetFieldsSize())
+
+	for i < packetSize {
 
 		message.ReadObject(packet, mapValue)
 
@@ -129,7 +136,8 @@ func insertMessage(packet *PacketReader.PacketReader) {
 					vlan, err = aggregator.AddNetIfaceBatch(portId, instance, mapValue)
 
 					if vlan < Aggregator.SHORT_VLAN {
-						vlanBatch = append(vlanBatch, vlan)
+						vlanBatch[vlanCount] = vlan
+						vlanCount++
 					}
 				}
 			case Aggregator.DNS:
@@ -157,7 +165,7 @@ func insertMessage(packet *PacketReader.PacketReader) {
 
 	aggregator.Execute()
 
-	logger.Info("Aggregate", zap.String("interface name ", instance), zap.String("type", caption), zap.Uint32("packet size", size), zap.Duration("time", time.Now().Sub(startTime)))
+	logger.Info("Aggregate", zap.String("interface name ", instance), zap.String("type", caption), zap.Uint32("packet size", packetSize), zap.Duration("time", time.Now().Sub(startTime)))
 }
 
 func inserVlan(portId string, instance string, batch []uint16) {

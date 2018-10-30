@@ -18,7 +18,7 @@ const (
 			protocol,
 			groupId,
 			serverPort,	clientPort,
-			startTime,endTime,
+			startTime, endTime,
 			domain,
 			isBroadcastServer, isBroadcastClient,
 			state,

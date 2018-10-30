@@ -8,6 +8,7 @@ type Message struct {
 	caption        string
 	serviceType    string
 	technologyType string
+	size           uint32
 	fieldArray     []*Field
 }
 
@@ -22,14 +23,14 @@ func (m *Message) Read(packet *reader.PacketReader) {
 	m.technologyType = packet.ReadString()
 	// log.Printf("Technology Type: %v", m.technologyType)
 
-	size := packet.ReadInt()
+	m.size = packet.ReadInt()
 	// log.Printf("Size: %v", size)
 
 	m.caption = packet.ReadString()
 	// log.Printf("caption: %v", m.caption)
 
 	if m.fieldArray == nil {
-		m.fieldArray = make([]*Field, size)
+		m.fieldArray = make([]*Field, m.size)
 	}
 
 	for i, _ := range m.fieldArray {
@@ -43,8 +44,6 @@ func (m *Message) Read(packet *reader.PacketReader) {
 func (m *Message) ReadObject(packet *reader.PacketReader, mapValue map[string]interface{}) {
 
 	for _, field := range m.fieldArray {
-		// log.Printf("fieldType: %s", field.id)
-
 		fieldValue := ReadValue(packet)
 		mapValue[field.id] = fieldValue
 	}
@@ -52,4 +51,8 @@ func (m *Message) ReadObject(packet *reader.PacketReader, mapValue map[string]in
 
 func (m *Message) GetCaption() string {
 	return m.caption
+}
+
+func (m *Message) GetFieldsSize() uint32 {
+	return m.size
 }

@@ -24,7 +24,7 @@ func (a *Aggregator) begin() error {
 		a.connect, err = Clickhouse.Connect()
 	}
 
-	if a.tx == nil {
+	if a.connect != nil && a.tx == nil {
 		a.tx, err = a.connect.Begin()
 	}
 
@@ -175,28 +175,45 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 	}
 
 	protocol := parseValueToString(mapValue[PROTOCOL])
+	// log.Println(PROTOCOL, protocol)
 	groupId := parseValueToString(mapValue[GROUP_ID])
+	// log.Println(GROUP_ID, groupId)
 	serverPort := parseValueToInt(mapValue[SERVER_PORT])
+	// log.Println(SERVER_PORT, serverPort)
 	clientPort := parseValueToInt(mapValue[CLIENT_PORT])
+	// log.Println(CLIENT_PORT, clientPort)
 
 	startTime := parseValueToLong(mapValue[START_TIME]) / 1000
+	// log.Println(START_TIME, startTime)
 	endTime := parseValueToLong(mapValue[END_TIME]) / 1000
+	// log.Println(END_TIME, endTime)
 
 	state := parseValueToLong(mapValue[STATE])
+	// log.Println(STATE, state)
 
 	macServer := parseValueToLong(mapValue[MAC_SERVER])
+	// log.Println(MAC_SERVER, macServer)
 	macClient := parseValueToLong(mapValue[MAC_CLIENT])
+	// log.Println(MAC_CLIENT, macClient)
 
 	rtt := parseValueToLong(mapValue[RTT]) / 1000
+	// log.Println(RTT, rtt)
 	art := parseValueToLong(mapValue[ART]) / 1000
+	// log.Println(ART, art)
 
 	fromSrvPckts := parseValueToLong(mapValue[FROM_SRV_PCKTS])
+	// log.Println(FROM_SRV_PCKTS, fromSrvPckts)
 	fromSrvBytes := parseValueToLong(mapValue[FROM_SRV_BYTES])
+	// log.Println(FROM_SRV_BYTES, fromSrvBytes)
 	fromSrvPayload := parseValueToLong(mapValue[FROM_SRV_PAYLOAD])
+	// log.Println(FROM_SRV_PAYLOAD, fromSrvPayload)
 
 	fromClntPckts := parseValueToLong(mapValue[FROM_CLNT_PKTS])
+	// log.Println(FROM_CLNT_PKTS, fromClntPckts)
 	fromClntBytes := parseValueToLong(mapValue[FROM_CLNT_BYTES])
+	// log.Println(FROM_CLNT_BYTES, fromClntBytes)
 	fromClntPayload := parseValueToLong(mapValue[FROM_CLNT_PAYLOAD])
+	// log.Println(FROM_CLNT_PAYLOAD, fromClntPayload)
 
 	fragmentsFromSrv := parseValueToLong(mapValue[FRAGMENTS_FROM_SRV])
 	fragmentsBytesFromSrv := parseValueToLong(mapValue[FRAGMENTS_BYTES_FROM_SRV])
