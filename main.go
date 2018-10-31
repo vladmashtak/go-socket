@@ -120,7 +120,7 @@ func insertMessage(in []byte) {
 
 	vlanBatch := make([]uint16, 100)
 
-	mapValue := make(map[string]interface{}, message.GetFieldsSize())
+	mapValue := Deserializer.NewDictionary(message.GetFieldsSize())
 
 	for i < packetSize {
 
@@ -155,6 +155,8 @@ func insertMessage(in []byte) {
 			logger.Info("Can't create batch", zap.Error(err))
 			return
 		}
+
+		mapValue.Clear()
 
 		i++
 	}

@@ -1,3 +1,7 @@
 build flags: -host=... -port=... -logsPath=...
 
 build project: go build -ldflags="-w -s" -o engine-go main.go
+
+benchmark project: go test -bench=. -cpuprofile cpu.out
+
+watch prfile: go tool pprof engine-socket.test cpu.out

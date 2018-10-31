@@ -2,11 +2,12 @@ package PacketReader
 
 import (
 	"bytes"
+	"compress/zlib"
 	"encoding/binary"
 	"engine-socket/Logger"
 	"io"
+	"io/ioutil"
 
-	"github.com/klauspost/compress/zlib"
 	"go.uber.org/zap"
 )
 
@@ -31,22 +32,20 @@ func NewPacketReader(buffer []byte) (*PacketReader, error) {
 func (p *PacketReader) decompress() error {
 
 	p.ReadInt()
-	capacity := p.ReadInt()
+	p.ReadInt()
 
 	var (
 		err     error
-		reader  io.ReadCloser
-		message []byte = make([]byte, capacity)
-		logger         = Logger.GetLogger()
+		reader  io.Reader
+		message []byte
+		logger  = Logger.GetLogger()
 	)
 
 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
 		return err
 	}
 
-	defer reader.Close()
-
-	if _, err = reader.Read(message); err != nil && err.Error() != "EOF" {
+	if message, err = ioutil.ReadAll(reader); err != nil && err.Error() != "EOF" {
 		logger.Info("Decompress", zap.Error(err))
 	}
 
@@ -104,4 +103,8 @@ func (p *PacketReader) ReadByteArray() []byte {
 	}
 
 	return p.shiftCursor(size)
+}
+
+func (p *PacketReader) GetIndnex() uint32 {
+	return p.index
 }
