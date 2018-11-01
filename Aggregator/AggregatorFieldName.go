@@ -77,6 +77,8 @@ const (
 	DNS       = "dns"
 	SSL       = "ssl"
 	HTTP      = "http"
+	TCP       = "tcp"
+	UDP       = "udp"
 
 	// Other
 	BROADCAST                 = "255"

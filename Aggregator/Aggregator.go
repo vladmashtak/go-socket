@@ -3,6 +3,7 @@ package Aggregator
 import (
 	"database/sql"
 	"engine-socket/Clickhouse"
+	"engine-socket/Deserializer"
 	"engine-socket/Logger"
 	"strings"
 
@@ -33,7 +34,7 @@ func (a *Aggregator) begin() error {
 	return err
 }
 
-func (a *Aggregator) commit() {
+func (a *Aggregator) Commit() {
 	logger := Logger.GetLogger()
 
 	if a.tx != nil {
@@ -43,13 +44,17 @@ func (a *Aggregator) commit() {
 	}
 }
 
-func (a *Aggregator) close() {
+func (a *Aggregator) Close() {
+	if a.stmt != nil {
+		a.stmt.Close()
+	}
+
 	if a.connect != nil {
 		a.connect.Close()
 	}
 }
 
-func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) (uint16, error) {
+func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue Deserializer.Dictionary) (uint16, error) {
 	var (
 		vlan   uint16      = SHORT_VLAN
 		err    error       = nil
@@ -120,7 +125,7 @@ func (a *Aggregator) AddVlanBatch(interfaceIndex string, dpiInstance string, vla
 	return err
 }
 
-func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}) error {
+func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapValue Deserializer.Dictionary) error {
 	var (
 		err    error       = a.begin()
 		logger *zap.Logger = Logger.GetLogger()
@@ -173,7 +178,7 @@ func (a *Aggregator) AddDnsBatch(interfaceIndex string, dpiInstance string, mapV
 	return err
 }
 
-func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance string, mapValue map[string]interface{}, caption string) error {
+func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance string, mapValue Deserializer.Dictionary, caption string) error {
 	var (
 		err    error       = a.begin()
 		logger *zap.Logger = Logger.GetLogger()
@@ -378,12 +383,7 @@ func (a *Aggregator) AddNetSessionBatch(interfaceIndex string, dpiInstance strin
 }
 
 func (a *Aggregator) Execute() {
+	a.Commit()
 
-	a.commit()
-
-	if a.stmt != nil {
-		a.stmt.Close()
-	}
-
-	a.close()
+	a.Close()
 }

@@ -7,6 +7,7 @@ import (
 	"engine-socket/Deserializer"
 	"engine-socket/Logger"
 	"engine-socket/PacketReader"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -144,19 +145,32 @@ func insertMessage(in []byte) {
 				{
 					err = aggregator.AddDnsBatch(portId, instance, mapValue)
 				}
-			default:
+			case Aggregator.HTTP, Aggregator.SSL, Aggregator.UDP, Aggregator.TCP:
 				{
 					err = aggregator.AddNetSessionBatch(portId, instance, mapValue, caption)
 				}
+			default:
+				{
+					err = errors.New("Invalid caption")
+				}
 			}
+
+			mapValue.Clear() // clear dictionary
 		}
 
 		if err != nil {
-			logger.Info("Can't create batch", zap.Error(err))
+			logger.Info(
+				"Can't create batch",
+				zap.Error(err),
+				zap.String("interface name ", instance),
+				zap.String("type", caption),
+				zap.Uint32("packet size", packetSize),
+				zap.Duration("time", time.Now().Sub(startTime)),
+			)
+
+			aggregator.Close()
 			return
 		}
-
-		mapValue.Clear()
 
 		i++
 	}
@@ -167,7 +181,13 @@ func insertMessage(in []byte) {
 
 	aggregator.Execute()
 
-	logger.Info("Aggregate", zap.String("interface name ", instance), zap.String("type", caption), zap.Uint32("packet size", packetSize), zap.Duration("time", time.Now().Sub(startTime)))
+	logger.Info(
+		"Aggregate",
+		zap.String("interface name ", instance),
+		zap.String("type", caption),
+		zap.Uint32("packet size", packetSize),
+		zap.Duration("time", time.Now().Sub(startTime)),
+	)
 }
 
 func inserVlan(portId string, instance string, batch []uint16) {
@@ -179,6 +199,8 @@ func inserVlan(portId string, instance string, batch []uint16) {
 	for _, vlan := range batch {
 		if err := aggregator.AddVlanBatch(portId, instance, vlan); err != nil {
 			logger.Error("Error insert vlan", zap.Error(err))
+			aggregator.Close()
+			return
 		}
 	}
 
