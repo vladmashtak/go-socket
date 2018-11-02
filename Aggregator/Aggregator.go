@@ -56,7 +56,7 @@ func (a *Aggregator) Close() {
 
 func (a *Aggregator) AddNetIfaceBatch(interfaceIndex string, dpiInstance string, mapValue Deserializer.Dictionary) (uint16, error) {
 	var (
-		vlan   uint16      = SHORT_VLAN
+		vlan   uint16      = uint16(SHORT_VLAN)
 		err    error       = nil
 		logger *zap.Logger = Logger.GetLogger()
 	)

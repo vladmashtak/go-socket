@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -8,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/klauspost/compress/zlib"
 )
 
 func Test_handleConnection(t *testing.T) {
@@ -30,11 +34,13 @@ func Test_handleConnection(t *testing.T) {
 
 func BenchmarkMain(b *testing.B) {
 	var (
-		err   error
-		files []string = make([]string, 4)
-		dir   string   = "/home/vlad/work/mocks"
-		i     uint32
-		in    []byte
+		err    error
+		reader io.ReadCloser
+		buffer []byte
+		files  []string = make([]string, 4)
+		dir    string   = "/home/vlad/work/mocks"
+		i      uint32
+		in     []byte
 	)
 
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -51,7 +57,11 @@ func BenchmarkMain(b *testing.B) {
 
 	for _, path := range files {
 		go func(path string) {
-			in, err = ioutil.ReadFile(path)
+			buffer, err = ioutil.ReadFile(path)
+
+			reader, err = zlib.NewReader(bytes.NewReader(buffer[8:]))
+
+			in, err = ioutil.ReadAll(reader)
 
 			insertMessage(in)
 		}(path)

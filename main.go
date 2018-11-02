@@ -9,11 +9,13 @@ import (
 	"engine-socket/PacketReader"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/klauspost/compress/zlib"
 	"go.uber.org/zap"
 )
 
@@ -61,17 +63,22 @@ func main() {
 
 func handleConnection(conn *net.TCPConn) {
 	var (
-		err    error
-		in     []byte
-		reader *bufio.Reader
-		logger = Logger.GetLogger()
+		err         error
+		in          []byte
+		reader      *bufio.Reader
+		decompresor io.ReadCloser
+		logger      = Logger.GetLogger()
 	)
 
 	logger.Info("Accept connection ", zap.String("address", conn.RemoteAddr().String()))
 
-	reader = bufio.NewReader(conn)
+	reader = bufio.NewReader(conn) // start read connection buffer
 
-	in, err = ioutil.ReadAll(reader)
+	_, err = reader.Discard(8) // skip 8 items
+
+	decompresor, err = zlib.NewReader(reader) // decompress buffer
+
+	in, err = ioutil.ReadAll(decompresor) // read from buffer to []byte
 
 	if err != nil {
 		logger.Info("Can't read input stream", zap.Error(err))
@@ -80,11 +87,13 @@ func handleConnection(conn *net.TCPConn) {
 
 	go insertMessage(in)
 
-	defer func(c *net.TCPConn) {
+	defer func(c *net.TCPConn, d io.ReadCloser) {
 		logger.Info("End connection ", zap.String("address", c.RemoteAddr().String()))
 
+		d.Close()
+
 		c.Close()
-	}(conn)
+	}(conn, decompresor)
 }
 
 func insertMessage(in []byte) {
@@ -105,17 +114,11 @@ func insertMessage(in []byte) {
 		return
 	}
 
-	message := Deserializer.NewMessage()
+	message := Deserializer.NewMessage(packet)
 
-	message.Read(packet)
+	caption := strings.ToLower(message.GetCaption()) // caption for switch type of message
 
-	caption := strings.ToLower(message.GetCaption())
-
-	instance := packet.ReadString()
-
-	portId := packet.ReadString()
-
-	packetSize := packet.ReadInt()
+	instance, portId, packetSize := packet.ReadMetadata()
 
 	aggregator := Aggregator.NewAggregator()
 
@@ -123,7 +126,7 @@ func insertMessage(in []byte) {
 
 	mapValue := Deserializer.NewDictionary(message.GetFieldsSize())
 
-	for i < packetSize {
+	for ; i < packetSize; i++ {
 
 		message.ReadObject(packet, mapValue)
 
@@ -171,8 +174,6 @@ func insertMessage(in []byte) {
 			aggregator.Close()
 			return
 		}
-
-		i++
 	}
 
 	if len(vlanBatch) != 0 {

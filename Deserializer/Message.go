@@ -12,11 +12,15 @@ type Message struct {
 	fieldArray     []*Field
 }
 
-func NewMessage() *Message {
-	return &Message{}
+func NewMessage(packet *reader.PacketReader) *Message {
+	m := &Message{}
+
+	m.read(packet)
+
+	return m
 }
 
-func (m *Message) Read(packet *reader.PacketReader) {
+func (m *Message) read(packet *reader.PacketReader) {
 	m.serviceType = packet.ReadString()
 	// log.Printf("Service Type: %v", m.serviceType)
 
@@ -41,7 +45,7 @@ func (m *Message) Read(packet *reader.PacketReader) {
 	}
 }
 
-func (m *Message) ReadObject(packet *reader.PacketReader, mapValue map[string]interface{}) {
+func (m *Message) ReadObject(packet *reader.PacketReader, mapValue Dictionary) {
 
 	for _, field := range m.fieldArray {
 		fieldValue := ReadValue(packet)

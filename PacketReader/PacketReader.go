@@ -1,14 +1,7 @@
 package PacketReader
 
 import (
-	"bytes"
-	"compress/zlib"
 	"encoding/binary"
-	"engine-socket/Logger"
-	"io"
-	"io/ioutil"
-
-	"go.uber.org/zap"
 )
 
 const (
@@ -24,36 +17,36 @@ type PacketReader struct {
 func NewPacketReader(buffer []byte) (*PacketReader, error) {
 	p := PacketReader{buffer, 0}
 
-	err := p.decompress()
+	// err := p.decompress()
 
-	return &p, err
+	return &p, nil
 }
 
-func (p *PacketReader) decompress() error {
+// func (p *PacketReader) decompress() error {
 
-	p.ReadInt()
-	p.ReadInt()
+// 	p.ReadInt()
+// 	p.ReadInt()
 
-	var (
-		err     error
-		reader  io.Reader
-		message []byte
-		logger  = Logger.GetLogger()
-	)
+// 	var (
+// 		err     error
+// 		reader  io.Reader
+// 		message []byte
+// 		logger  = Logger.GetLogger()
+// 	)
 
-	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
-		return err
-	}
+// 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
+// 		return err
+// 	}
 
-	if message, err = ioutil.ReadAll(reader); err != nil && err.Error() != "EOF" {
-		logger.Info("Decompress", zap.Error(err))
-	}
+// 	if message, err = ioutil.ReadAll(reader); err != nil && err.Error() != "EOF" {
+// 		logger.Info("Decompress", zap.Error(err))
+// 	}
 
-	p.index = 0
-	p.buffer = message
+// 	p.index = 0
+// 	p.buffer = message
 
-	return nil
-}
+// 	return nil
+// }
 
 func (p *PacketReader) shiftCursor(offset uint32) []byte {
 	endIndex := p.index + offset
@@ -107,4 +100,14 @@ func (p *PacketReader) ReadByteArray() []byte {
 
 func (p *PacketReader) GetIndnex() uint32 {
 	return p.index
+}
+
+func (p *PacketReader) ReadMetadata() (instance string, portId string, packetSize uint32) {
+	instance = p.ReadString()
+
+	portId = p.ReadString()
+
+	packetSize = p.ReadInt()
+
+	return
 }
