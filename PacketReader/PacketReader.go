@@ -1,6 +1,7 @@
 package PacketReader
 
 import (
+	"bufio"
 	"encoding/binary"
 )
 
@@ -10,104 +11,102 @@ const (
 )
 
 type PacketReader struct {
-	buffer []byte
-	index  uint32
+	buffer *bufio.Reader
 }
 
-func NewPacketReader(buffer []byte) (*PacketReader, error) {
-	p := PacketReader{buffer, 0}
-
-	// err := p.decompress()
+func NewPacketReader(buffer *bufio.Reader) (*PacketReader, error) {
+	p := PacketReader{buffer}
 
 	return &p, nil
 }
 
-// func (p *PacketReader) decompress() error {
+func (p *PacketReader) shiftCursor(size uint32) ([]byte, error) {
+	in := make([]byte, size)
 
-// 	p.ReadInt()
-// 	p.ReadInt()
+	_, err := p.buffer.Read(in)
 
-// 	var (
-// 		err     error
-// 		reader  io.Reader
-// 		message []byte
-// 		logger  = Logger.GetLogger()
-// 	)
-
-// 	if reader, err = zlib.NewReader(bytes.NewReader(p.buffer[p.index:])); err != nil {
-// 		return err
-// 	}
-
-// 	if message, err = ioutil.ReadAll(reader); err != nil && err.Error() != "EOF" {
-// 		logger.Info("Decompress", zap.Error(err))
-// 	}
-
-// 	p.index = 0
-// 	p.buffer = message
-
-// 	return nil
-// }
-
-func (p *PacketReader) shiftCursor(offset uint32) []byte {
-	endIndex := p.index + offset
-
-	in := p.buffer[p.index:endIndex]
-	p.index = endIndex
-
-	return in
+	return in, err
 }
 
-func (p *PacketReader) ReadInt() uint32 {
-	in := p.shiftCursor(Integer)
+func (p *PacketReader) ReadInt() (uint32, error) {
+	in, err := p.shiftCursor(Integer)
 
-	return binary.BigEndian.Uint32(in)
-}
-
-func (p *PacketReader) ReadLong() uint64 {
-	in := p.shiftCursor(Long)
-
-	return binary.BigEndian.Uint64(in)
-}
-
-func (p *PacketReader) ReadDouble() float64 {
-	return float64(p.ReadLong())
-}
-
-func (p *PacketReader) ReadString() string {
-	strLen := p.ReadInt()
-
-	in := p.shiftCursor(strLen)
-
-	return string(in)
-}
-
-func (p *PacketReader) ReadByte() byte {
-	b := p.buffer[p.index]
-	p.index += 1
-
-	return b
-}
-
-func (p *PacketReader) ReadByteArray() []byte {
-	size := p.ReadInt()
-
-	if size == 0 {
-		return nil
+	if err != nil {
+		return 0, err
 	}
 
-	return p.shiftCursor(size)
+	return binary.BigEndian.Uint32(in), err
 }
 
-func (p *PacketReader) GetIndnex() uint32 {
-	return p.index
+func (p *PacketReader) ReadLong() (uint64, error) {
+	in, err := p.shiftCursor(Long)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return binary.BigEndian.Uint64(in), err
 }
 
-func (p *PacketReader) ReadMetadata() (instance string, portId string, packetSize uint32) {
-	instance = p.ReadString()
+func (p *PacketReader) ReadDouble() (float64, error) {
+	l, err := p.ReadLong()
 
-	portId = p.ReadString()
+	if err != nil {
+		return 0, err
+	}
 
-	packetSize = p.ReadInt()
+	return float64(l), err
+}
+
+func (p *PacketReader) ReadString() (string, error) {
+	var (
+		err error
+		str []byte
+	)
+
+	str, err = p.ReadByteArray()
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(str), err
+}
+
+func (p *PacketReader) ReadByte() (byte, error) {
+	b, err := p.buffer.ReadByte()
+
+	return b, err
+}
+
+func (p *PacketReader) ReadByteArray() ([]byte, error) {
+	var (
+		err   error
+		size  uint32
+		slice []byte
+	)
+
+	size, err = p.ReadInt()
+
+	if size == 0 {
+		return nil, err
+	}
+
+	slice, err = p.shiftCursor(size)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return slice, err
+}
+
+func (p *PacketReader) ReadMetadata() (instance string, portId string, packetSize uint32, err error) {
+	instance, err = p.ReadString()
+
+	portId, err = p.ReadString()
+
+	packetSize, err = p.ReadInt()
 
 	return
 }

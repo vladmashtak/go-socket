@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -44,6 +43,10 @@ func main() {
 
 	logger.Info("Start work ", zap.String("server", server))
 
+	// connection := make(chan *net.TCPConn, 10)
+	inputData := make(chan []byte, 20)
+	dataBatch := make(chan Deserializer.Dictionary)
+
 	defer logger.Sync()
 	defer ln.Close()
 
@@ -57,14 +60,21 @@ func main() {
 
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 
-		go handleConnection(conn)
+		go handleConnection(conn, inputData)
+
+		select {
+		case in := <-inputData:
+			go insertMessage(in)
+		case bc := <-dataBatch:
+
+		}
 	}
 }
 
-func handleConnection(conn *net.TCPConn) {
+func handleConnection(conn *net.TCPConn, inputData chan<- []byte) {
 	var (
 		err         error
-		in          []byte
+		in          *bufio.Reader
 		reader      *bufio.Reader
 		decompresor io.ReadCloser
 		logger      = Logger.GetLogger()
@@ -74,18 +84,22 @@ func handleConnection(conn *net.TCPConn) {
 
 	reader = bufio.NewReader(conn) // start read connection buffer
 
-	_, err = reader.Discard(8) // skip 8 items
+	_, err = reader.Discard(4) // skip 8 items
+
+	_, err = reader. // skip 8 items
 
 	decompresor, err = zlib.NewReader(reader) // decompress buffer
-
-	in, err = ioutil.ReadAll(decompresor) // read from buffer to []byte
 
 	if err != nil {
 		logger.Info("Can't read input stream", zap.Error(err))
 		return
 	}
 
-	go insertMessage(in)
+	in = bufio.NewReaderSize(decompresor) // read from buffer to []byte
+
+	inputData <- in
+
+	// go insertMessage(in)
 
 	defer func(c *net.TCPConn, d io.ReadCloser) {
 		logger.Info("End connection ", zap.String("address", c.RemoteAddr().String()))
@@ -96,7 +110,7 @@ func handleConnection(conn *net.TCPConn) {
 	}(conn, decompresor)
 }
 
-func insertMessage(in []byte) {
+func insertMessage(inputData *bufio.Reader) {
 	var (
 		i         uint32
 		vlanCount uint32
@@ -107,7 +121,7 @@ func insertMessage(in []byte) {
 
 	startTime := time.Now()
 
-	packet, err = PacketReader.NewPacketReader(in)
+	packet, err = PacketReader.NewPacketReader(inputData)
 
 	if err != nil {
 		logger.Info("Can't read packet", zap.Error(err))
@@ -158,7 +172,7 @@ func insertMessage(in []byte) {
 				}
 			}
 
-			mapValue.Clear() // clear dictionary
+			mapValue = Deserializer.NewDictionary(message.GetFieldsSize()) // clear dictionary
 		}
 
 		if err != nil {
